@@ -8,7 +8,6 @@ import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/widgets/srg_app_bar.dart';
 import 'package:dcs_app/widgets/srg_drawer.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
-import 'package:dcs_app/providers/order_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -21,20 +20,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _profileLoaded = false;
 
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(() {
-      final authState = ref.read(authProvider);
-      if (authState.isLoggedIn) {
-        ref.read(orderProvider.notifier).getOrders();
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final authState  = ref.watch(authProvider);
-    final orderState = ref.watch(orderProvider);
+    final authState = ref.watch(authProvider);
 
     if (authState.isLoggedIn && !_profileLoaded) {
       _profileLoaded = true;
@@ -209,51 +196,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Orders Stats
-              if (orderState.orders.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10)
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _StatItem(
-                          label: 'Total Orders',
-                          value: orderState.orders.length.toString(),
-                          icon: Icons.receipt_long,
-                          color: AppColors.primary),
-                      Container(width: 1, height: 40, color: AppColors.border),
-                      _StatItem(
-                        label: 'Active',
-                        value: orderState.orders
-                            .where((o) => o['status'] == 'active')
-                            .length
-                            .toString(),
-                        icon: Icons.pending_actions,
-                        color: AppColors.green,
-                      ),
-                      Container(width: 1, height: 40, color: AppColors.border),
-                      _StatItem(
-                        label: 'Completed',
-                        value: orderState.orders
-                            .where((o) => o['status'] == 'completed')
-                            .length
-                            .toString(),
-                        icon: Icons.check_circle_outline,
-                        color: AppColors.secondary,
-                      ),
-                    ],
-                  ),
-                ),
+              // ✅ Orders Stats section काढलं — Orders आधीच स्वतंत्र tab मध्ये आहे
 
               // Menu Items
               Container(
@@ -274,17 +217,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: 'My Profile',
                         onTap: () {}),
                     _ProfileMenuItem(
-                        icon: Icons.receipt_long,
-                        label: 'My Orders',
-                        onTap: () => context.go('/orders')),
-                    _ProfileMenuItem(
                         icon: Icons.favorite_outline,
                         label: 'Wishlist',
-                        onTap: () => context.go('/wishlist')), // ✅ navigate
+                        onTap: () => context.go('/wishlist')),
                     _ProfileMenuItem(
                         icon: Icons.lock_outline,
                         label: 'Change Password',
-                        onTap: () {}),
+                        onTap: () => context.push('/change-password')), // ✅ push वापरला
                     _ProfileMenuItem(
                         icon: Icons.logout,
                         label: 'Logout',
@@ -334,36 +273,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
     }
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String label, value;
-  final IconData icon;
-  final Color color;
-
-  const _StatItem(
-      {required this.label,
-        required this.value,
-        required this.icon,
-        required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-                fontSize: R.sp(context, 18),
-                fontWeight: FontWeight.w800,
-                color: color)),
-        Text(label,
-            style: TextStyle(
-                fontSize: R.sp(context, 11), color: AppColors.textMuted)),
-      ],
-    );
   }
 }
 

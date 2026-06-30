@@ -1,7 +1,9 @@
 // lib/main.dart
 
 import 'dart:async';
+import 'package:dcs_app/screens/change_password_screen.dart';
 import 'package:dcs_app/screens/contact_screen.dart';
+import 'package:dcs_app/screens/forgot_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -147,11 +149,21 @@ class _DCSAppState extends ConsumerState<DCSApp> {
           builder: (context, state) => const OrdersScreen(),
         ),
         GoRoute(
+          path: '/change-password',
+          builder: (context, state) => const ChangePasswordScreen(),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
           path: '/orders/:id',
           builder: (context, state) {
             final id = int.parse(state.pathParameters['id']!);
             return OrderDetailScreen(orderId: id);
+
           },
+
         ),
       ],
     );

@@ -13,7 +13,7 @@ class ApiClient {
   // ✅ 401 वर callback — main.dart मधून set करा
   static void Function()? onUnauthorized;
 
-  // ✅ नवीन — startup check वेळी 401 redirect बंद ठेवायला
+  // ✅ startup check वेळी 401 redirect बंद ठेवायला
   static bool suppressUnauthorizedRedirect = false;
 
   void init() {
@@ -70,10 +70,12 @@ class ApiClient {
 
           if (error.response?.statusCode == 401) {
             final prefs = await SharedPreferences.getInstance();
+            final hadToken = prefs.getString('auth_token') != null;
+
             await prefs.remove('auth_token');
 
-            // ✅ Startup check वेळी silently fail — login ला force नको
-            if (!suppressUnauthorizedRedirect) {
+            // ✅ Guest असताना 401 आला तर ignore — फक्त खरा logged-in session expire झाला तरच redirect
+            if (hadToken && !suppressUnauthorizedRedirect) {
               onUnauthorized?.call();
             }
           }
@@ -121,6 +123,7 @@ class ApiClient {
     }
   }
 
+  // ✅ Improved — Laravel validation errors असतील तर खरा, नेमका मेसेज काढतो
   String _handleError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -130,11 +133,29 @@ class ApiClient {
         return 'No internet connection.';
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
-        final message    = e.response?.data?['message'] ?? 'Something went wrong.';
-        if (statusCode == 400) return 'Bad request: $message';
+        final data = e.response?.data;
+
+        String message = data is Map ? (data['message']?.toString() ?? '') : '';
+
+        if (data is Map && data['errors'] is Map) {
+          final errors = data['errors'] as Map;
+          if (errors.isNotEmpty) {
+            final firstFieldErrors = errors.values.first;
+            if (firstFieldErrors is List && firstFieldErrors.isNotEmpty) {
+              message = firstFieldErrors.first.toString();
+            } else if (firstFieldErrors != null) {
+              message = firstFieldErrors.toString();
+            }
+          }
+        }
+
+        if (message.isEmpty) message = 'Something went wrong.';
+
+        if (statusCode == 400) return message;
         if (statusCode == 401) return 'Unauthorized. Please login again.';
         if (statusCode == 403) return 'Access denied.';
         if (statusCode == 404) return 'Not found.';
+        if (statusCode == 422) return message;
         if (statusCode == 500) return 'Server error. Please try again later.';
         return message;
       default:
