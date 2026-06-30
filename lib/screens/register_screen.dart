@@ -7,7 +7,6 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
-import 'package:dcs_app/widgets/app_network_image.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -101,8 +100,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppNetworkImage(
-                      url: AppImages.logo,
+                    Image.asset(
+                      AppImages.logo,
                       height: 60,
                       width: 180,
                       fit: BoxFit.contain,

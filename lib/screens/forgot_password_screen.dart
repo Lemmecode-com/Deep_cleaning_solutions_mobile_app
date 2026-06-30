@@ -5,7 +5,6 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
-import 'package:dcs_app/widgets/app_network_image.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -90,8 +89,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppNetworkImage(
-                      url: AppImages.logo,
+                    Image.asset(
+                      AppImages.logo,
                       height: 50,
                       width: 150,
                       fit: BoxFit.contain,

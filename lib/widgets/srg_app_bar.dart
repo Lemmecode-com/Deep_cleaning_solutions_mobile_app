@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
-import 'package:dcs_app/widgets/app_network_image.dart';
 import 'package:dcs_app/providers/wishlist_provider.dart';
 
 class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -27,8 +26,8 @@ class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
           children: [
             // ✅ Logo — perfect center
             Center(
-              child: AppNetworkImage(
-                url: AppImages.logo,
+              child: Image.asset(
+                AppImages.logo,
                 height: 48,
                 width: 140,
                 fit: BoxFit.contain,
@@ -125,8 +124,8 @@ class SRGSliverAppBar extends ConsumerWidget {
           children: [
             // ✅ Logo — perfect center
             Center(
-              child: AppNetworkImage(
-                url: AppImages.logo,
+              child: Image.asset(
+                AppImages.logo,
                 height: 48,
                 width: 140,
                 fit: BoxFit.contain,

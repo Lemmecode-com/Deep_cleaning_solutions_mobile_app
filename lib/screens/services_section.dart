@@ -118,41 +118,29 @@ class ServiceCard extends StatelessWidget {
                     ),
                   ),
 
-                  // ✅ Overlay buttons
+                  // ✅ Cart icon — image च्या top-right ला
                   Positioned(
-                    bottom: 12, left: 0, right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // ✅ Open icon — card tap same
-                        _OverlayBtn(
-                          icon: Icons.open_in_full,
-                          onTap: () => _navigateMain(context),
-                        ),
-                        const SizedBox(width: 10),
-                        // ✅ Cart icon — Flats → FlatCategoryScreen, Others → EnquiryFormScreen
-                        _OverlayBtn(
-                          icon: Icons.shopping_bag_outlined,
-                          onTap: () {
-                            if (name == 'Flats') {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => const FlatCategoryScreen(),
-                              ));
-                            } else {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => EnquiryFormScreen(serviceName: name),
-                              ));
-                            }
-                          },
-                        ),
-                      ],
+                    top: 10, right: 10,
+                    child: _OverlayBtn(
+                      icon: Icons.shopping_bag_outlined,
+                      onTap: () {
+                        if (name == 'Flats') {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => const FlatCategoryScreen(),
+                          ));
+                        } else {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => EnquiryFormScreen(serviceName: name),
+                          ));
+                        }
+                      },
                     ),
                   ),
 
-                  // NEW badge
+                  // NEW badge — top-right वर cart icon आल्यामुळे थोडं खाली शिफ्ट केलं, जेणेकरून overlap होणार नाही
                   if (data['isNew'] == true)
                     Positioned(
-                      top: 10, right: 10,
+                      top: 56, right: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(

@@ -21,8 +21,6 @@ class _BannerSectionState extends State<BannerSection> {
   // ── Static fallback (API data नसेल तर) ───────────────────────────
   static const List<Map<String, String>> _staticBanners = [
     {'tag': 'Professional Cleaning', 'title': 'Expert Cleaning\nServices for You',  'sub': 'Trusted by 1400+ happy clients across Pune'},
-    {'tag': 'New Service',           'title': 'Car Wash Now\nAvailable!',            'sub': 'Book your car wash service today'},
-    {'tag': 'Seasonal Offer',        'title': 'Get 20% Off\nThis Month!',            'sub': 'Limited time offer on all cleaning services'},
   ];
 
   List<Map<String, String>> get _banners {

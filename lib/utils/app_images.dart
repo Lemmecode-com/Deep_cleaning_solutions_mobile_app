@@ -1,7 +1,7 @@
 class AppImages {
   AppImages._();
 
-  static const String logo = 'https://deepcleaningsolutions.in/front-assets/img/logo-Cl9.png';
+  static const String logo = 'assets/images/logo.png';
 
   // ── Services ──────────────────────────────────────────────────────
   static const String flat       = 'https://deepcleaningsolutions.in/front-assets/img/categories/WEBP_Images/flat-2.webp';

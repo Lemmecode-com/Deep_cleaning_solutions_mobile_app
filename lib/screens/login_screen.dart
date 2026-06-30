@@ -5,7 +5,6 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
-import 'package:dcs_app/widgets/app_network_image.dart';
 
 import '../providers/home_provider.dart';
 
@@ -87,8 +86,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppNetworkImage(
-                      url: AppImages.logo,
+                    Image.asset(
+                      AppImages.logo,
                       height: 60,
                       width: 180,
                       fit: BoxFit.contain,
@@ -202,17 +201,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         child: authState.isLoading
                             ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                             : const Text(
-                                'Login',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                              ),
+                          'Login',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
