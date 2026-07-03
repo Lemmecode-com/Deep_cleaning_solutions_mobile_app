@@ -10,6 +10,9 @@ class ServiceDetailSheet extends ConsumerStatefulWidget {
   final List<Map<String, String>> services;
   final int? productId;
   final String? slug;
+  // ✅ backend च्या product object मधून आलेला sqft range — hardcoded नाही
+  final num? sqftMin;
+  final num? sqftMax;
 
   const ServiceDetailSheet({
     super.key,
@@ -17,6 +20,8 @@ class ServiceDetailSheet extends ConsumerStatefulWidget {
     required this.services,
     this.productId,
     this.slug,
+    this.sqftMin,
+    this.sqftMax,
   });
 
   @override
@@ -36,6 +41,43 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
     super.dispose();
   }
 
+  // ✅ Range कुठेही hardcode नाही — जे backend पाठवेल तेच hint मध्ये दिसेल.
+  // backend ने range बदलला (min/max) तरी इथे काहीही बदलावं लागत नाही.
+  String get _sqftHint {
+    final min = widget.sqftMin;
+    final max = widget.sqftMax;
+    if (min != null && max != null) return 'Enter sq.ft. (min ${_fmt(min)} – max ${_fmt(max)})';
+    if (min != null) return 'Enter sq.ft. (min ${_fmt(min)})';
+    if (max != null) return 'Enter sq.ft. (max ${_fmt(max)})';
+    return 'Enter sq.ft.';
+  }
+
+  // ✅ 650.0 → "650", 650.5 → "650.5" असं स्वच्छ दाखवतो (backend कडून जो number
+  // आला तोच, फक्त फॉरमॅटिंग)
+  String _fmt(num n) => n == n.roundToDouble() ? n.toStringAsFixed(0) : n.toString();
+
+  // ✅ backend कडून raw validation message आलाच (उदा. दुसऱ्या field साठी) तर तो
+  // technical/Laravel-style वाक्य clean करून दाखवतो. यातले आकडे backend च्या
+  // message मधूनच dynamically काढलेले असतात — कुठलाही range इथे hardcode नाही.
+  String _humanizeError(String raw) {
+    final lower = raw.toLowerCase();
+
+    if (lower.contains('sqft') || lower.contains('sq.ft') || lower.contains('sq ft')) {
+      final minMatch = RegExp(r'(?:at least|minimum of|min(?:imum)?)\D{0,15}?(\d+(\.\d+)?)').firstMatch(lower);
+      final maxMatch = RegExp(r'(?:not (?:be )?greater than|no more than|maximum of|max(?:imum)?)\D{0,15}?(\d+(\.\d+)?)').firstMatch(lower);
+
+      if (minMatch != null) {
+        return 'Please enter at least ${minMatch.group(1)} sq.ft. for this service.';
+      }
+      if (maxMatch != null) {
+        return 'This service is available up to ${maxMatch.group(1)} sq.ft. only. Please enter a valid sq.ft.';
+      }
+    }
+
+    // unrecognized pattern → backend चा message जसाच्या तसा
+    return raw;
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -47,28 +89,30 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
     );
   }
 
+  // ✅ इथे कुठलाही client-side hardcoded validation message नाही.
+  // sq.ft रिकामं/अवैध/500 पेक्षा कमी असेल तरी request backend कडे जाते
+  // आणि backend जो validation error पाठवेल (422 चा errors object) तोच
+  // जसाच्या तसा (ApiClient._extractServerMessage मार्फत) दाखवला जातो.
   Future<void> _addToCart() async {
-    // ✅ 1. Empty check
-    if (_sqftCtrl.text.trim().isEmpty) {
-      _showSnackBar('Please enter sq.ft. of your property.', isError: true);
+    if (widget.productId == null) return;
+
+    final double sqft = double.tryParse(_sqftCtrl.text.trim()) ?? 0;
+
+    // ✅ backend कडून आधीच मिळालेला (dynamic) range वापरून लगेच, स्पष्ट भाषेत
+    // सांगतो — number कुठेही hardcode नाही, तो widget.sqftMin/sqftMax मधून
+    // (product data) येतो. Range बदलला तरी हा code तसाच राहतो.
+    if (widget.sqftMin != null && sqft < widget.sqftMin!) {
+      _showSnackBar(
+        'Please enter at least ${_fmt(widget.sqftMin!)} sq.ft. for this service.',
+        isError: true,
+      );
       return;
     }
-
-    // ✅ 2. Invalid number check
-    final sqft = double.tryParse(_sqftCtrl.text.trim());
-    if (sqft == null) {
-      _showSnackBar('Please enter a valid sq.ft. value.', isError: true);
-      return;
-    }
-
-    // ✅ 3. Minimum 500 sq ft
-    if (sqft < 500) {
-      _showSnackBar('Sq.ft. must be at least 500.', isError: true);
-      return;
-    }
-
-    if (widget.productId == null) {
-      _showSnackBar('Product not available.', isError: true);
+    if (widget.sqftMax != null && sqft > widget.sqftMax!) {
+      _showSnackBar(
+        'This service is available up to ${_fmt(widget.sqftMax!)} sq.ft. only. Please enter a valid sq.ft.',
+        isError: true,
+      );
       return;
     }
 
@@ -98,8 +142,12 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
             context.go('/cart');
           }
         } else {
-          final errorMsg = ref.read(cartProvider).error ?? 'Failed to add to cart.';
-          _showSnackBar(errorMsg, isError: true);
+          // ✅ backend कडून आलेला actual error/validation message — पण जर तो
+          // technical (raw Laravel style) असेल तर स्वच्छ भाषेत rewrite करतो
+          final rawError = ref.read(cartProvider).error;
+          if (rawError != null && rawError.isNotEmpty) {
+            _showSnackBar(_humanizeError(rawError), isError: true);
+          }
         }
       }
     } finally {
@@ -237,7 +285,7 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                       controller: _sqftCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        hintText: 'Enter sq.ft. (minimum 500)',
+                        hintText: _sqftHint,
                         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                         filled: true,
                         fillColor: AppColors.surface,

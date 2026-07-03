@@ -28,6 +28,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.secondary : AppColors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -39,17 +50,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      // ✅ Login successful — snackbar आधी दाखवा, मग थोडा वेळ थांबून home वर navigate करा
+      // (नाहीतर snackbar दिसायच्या आधीच स्क्रीन बदलून जाते)
+      _showSnackBar('Login successful!');
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      if (!mounted) return;
+
       // Login नंतर home data refresh करा
       await ref.read(homeProvider.notifier).getHomeData();
       if (mounted) context.go('/');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ref.read(authProvider).error ?? 'Login failed!'),
-          backgroundColor: AppColors.secondary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      _showSnackBar(
+        ref.read(authProvider).error ?? 'Login failed!',
+        isError: true,
       );
     }
   }

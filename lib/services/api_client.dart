@@ -124,6 +124,42 @@ class ApiClient {
     }
   }
 
+  // ✅ Backend च्या validation errors मधून FULL message काढतो —
+  // आधी फक्त पहिल्या field चा पहिला error दाखवत होता, आता सगळ्या
+  // fields चे सगळे errors एकत्र (नवीन ओळीत) दाखवतो. काहीही hardcode
+  // केलेलं नाही — जे backend पाठवेल तेच जसंच्या तसं दिसेल.
+  String _extractServerMessage(dynamic data) {
+    if (data is! Map) return '';
+
+    final List<String> messages = [];
+
+    // Laravel-style: {"errors": {"field": ["msg1", "msg2"], ...}}
+    if (data['errors'] is Map) {
+      final errors = data['errors'] as Map;
+      for (final value in errors.values) {
+        if (value is List) {
+          messages.addAll(value.map((e) => e.toString()));
+        } else if (value != null) {
+          messages.add(value.toString());
+        }
+      }
+    }
+    // Some APIs send errors as a flat list: {"errors": ["msg1", "msg2"]}
+    else if (data['errors'] is List) {
+      messages.addAll((data['errors'] as List).map((e) => e.toString()));
+    }
+
+    if (messages.isNotEmpty) {
+      // duplicate काढून टाक, प्रत्येक message नव्या ओळीवर
+      return messages.toSet().join('\n');
+    }
+
+    // fallback: top-level message field
+    if (data['message'] != null) return data['message'].toString();
+
+    return '';
+  }
+
   String _handleError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -135,29 +171,16 @@ class ApiClient {
         final statusCode = e.response?.statusCode;
         final data = e.response?.data;
 
-        String message = data is Map ? (data['message']?.toString() ?? '') : '';
+        final message = _extractServerMessage(data);
 
-        if (data is Map && data['errors'] is Map) {
-          final errors = data['errors'] as Map;
-          if (errors.isNotEmpty) {
-            final firstFieldErrors = errors.values.first;
-            if (firstFieldErrors is List && firstFieldErrors.isNotEmpty) {
-              message = firstFieldErrors.first.toString();
-            } else if (firstFieldErrors != null) {
-              message = firstFieldErrors.toString();
-            }
-          }
-        }
+        if (message.isNotEmpty) return message;
 
-        if (message.isEmpty) message = 'Something went wrong.';
-
-        if (statusCode == 400) return message;
+        // ✅ backend ने काहीच message दिला नाही तरच हे generic fallback वापरतो
         if (statusCode == 401) return 'Unauthorized. Please login again.';
         if (statusCode == 403) return 'Access denied.';
         if (statusCode == 404) return 'Not found.';
-        if (statusCode == 422) return message;
         if (statusCode == 500) return 'Server error. Please try again later.';
-        return message;
+        return 'Something went wrong.';
       default:
         return 'Something went wrong. Please try again.';
     }

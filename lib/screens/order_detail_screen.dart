@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/providers/order_provider.dart';
 
+import 'orders_screen.dart' show formatBookingDate, formatBookingTime;
+
 class OrderDetailScreen extends ConsumerStatefulWidget {
   final int orderId;
   const OrderDetailScreen({super.key, required this.orderId});
@@ -54,8 +56,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                 _InfoRow('Order Number', order['order_number']?.toString() ?? ''),
                 _InfoRow('Status', order['status']?.toString() ?? ''),
                 _InfoRow('Payment Status', order['payment_status']?.toString() ?? ''),
-                _InfoRow('Booking Date', order['booking_date']?.toString() ?? ''),
-                _InfoRow('Booking Time', order['booking_time']?.toString() ?? ''),
+                // ✅ readable format — ISO string ऐवजी "03 Jul 2026", "1:00 PM"
+                _InfoRow('Booking Date', formatBookingDate(order['booking_date']?.toString())),
+                _InfoRow('Booking Time', formatBookingTime(order['booking_time']?.toString())),
               ],
             ),
             const SizedBox(height: 16),

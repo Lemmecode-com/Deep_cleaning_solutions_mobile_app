@@ -6,6 +6,42 @@ import 'package:dcs_app/providers/order_provider.dart';
 
 import '../providers/auth_provider.dart';
 
+// ✅ ISO datetime ("2026-07-03T00:00:00.000000Z") → readable "03 Jul 2026"
+// कुठलंही package न वापरता — parse fail झालं तर raw value जशीच्या तशी दाखवतो
+// (crash नाही, silent fallback).
+String formatBookingDate(String? raw) {
+  if (raw == null || raw.isEmpty) return '';
+  try {
+    final date = DateTime.parse(raw).toLocal();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final day = date.day.toString().padLeft(2, '0');
+    return '$day ${months[date.month - 1]} ${date.year}';
+  } catch (_) {
+    return raw;
+  }
+}
+
+// ✅ "13:00:00" → "1:00 PM". फक्त HH:mm:ss किंवा HH:mm पॅटर्न असेल तरच फॉरमॅट
+// करतो, नाहीतर raw value दाखवतो.
+String formatBookingTime(String? raw) {
+  if (raw == null || raw.isEmpty) return '';
+  final parts = raw.split(':');
+  if (parts.length < 2) return raw;
+
+  final hour24 = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour24 == null || minute == null) return raw;
+
+  final period = hour24 >= 12 ? 'PM' : 'AM';
+  int hour12 = hour24 % 12;
+  if (hour12 == 0) hour12 = 12;
+  final minuteStr = minute.toString().padLeft(2, '0');
+  return '$hour12:$minuteStr $period';
+}
+
 class OrdersScreen extends ConsumerStatefulWidget {
   final bool embedded; // ✅ true = bottom nav tab, false = pushed route
 
@@ -178,8 +214,9 @@ class _OrderCard extends StatelessWidget {
     final String status        = order['status']?.toString() ?? 'Pending';
     final String paymentStatus = order['payment_status']?.toString() ?? '';
     final String grandTotal    = order['grand_total']?.toString() ?? '0';
-    final String bookingDate   = order['booking_date']?.toString() ?? '';
-    final String bookingTime   = order['booking_time']?.toString() ?? '';
+    // ✅ readable format
+    final String bookingDate   = formatBookingDate(order['booking_date']?.toString());
+    final String bookingTime   = formatBookingTime(order['booking_time']?.toString());
     final int itemsCount       = order['items_count'] ?? 0;
 
     return GestureDetector(

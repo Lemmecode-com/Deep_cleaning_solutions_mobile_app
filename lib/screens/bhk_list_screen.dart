@@ -142,6 +142,26 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     return null;
   }
 
+  // ✅ NEW: sqft_min / sqft_max थेट backend च्या product object मधून —
+  // कुठलाही range इथे hardcode केलेला नाही, जो असेल तोच वापरला जातो.
+  num? _getSqftMinFromList(List<dynamic> products, int index) {
+    if (products.isNotEmpty && index < products.length) {
+      final v = products[index]['sqft_min'];
+      if (v is num) return v;
+      if (v is String) return num.tryParse(v);
+    }
+    return null;
+  }
+
+  num? _getSqftMaxFromList(List<dynamic> products, int index) {
+    if (products.isNotEmpty && index < products.length) {
+      final v = products[index]['sqft_max'];
+      if (v is num) return v;
+      if (v is String) return num.tryParse(v);
+    }
+    return null;
+  }
+
   Future<void> _onWishlistTap(int productId) async {
     final result = await ref
         .read(wishlistProvider.notifier)
@@ -234,6 +254,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                 // ✅ FIXED: products directly vaparle — ref.watch(productProvider) already build madhe ahe
                 final productId = _getProductIdFromList(products, i);
                 final slug      = _getSlugFromList(products, i);
+                final sqftMin   = _getSqftMinFromList(products, i);
+                final sqftMax   = _getSqftMaxFromList(products, i);
 
                 // ✅ FIXED: productId correct milto ata — heart reactive hoil
                 final inWishlist = productId != null
@@ -250,6 +272,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                       services:  _getServices(bhkName),
                       productId: productId,
                       slug:      slug,
+                      sqftMin:   sqftMin,
+                      sqftMax:   sqftMax,
                     ),
                   ),
                   child: Container(
