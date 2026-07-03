@@ -113,8 +113,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     });
   }
 
-
-
   List<Map<String, String>> _getServices(String bhk) {
     if (widget.type == 'Furnished') {
       return _furnishedServices[bhk] ?? _furnishedServices['1 BHK']!;
@@ -255,32 +253,48 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                     ),
                   ),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Stack(
                           children: [
                             AppNetworkImage(
                               url: _getImageUrl(i),
                               width: double.infinity,
-                              height: R.wp(context, 60),
+                              height: R.wp(context, 45),
                               fit: BoxFit.cover,
-                              borderRadius: BorderRadius.circular(12),
                             ),
 
-                            // NEW badge — top left
+                            // BHK size badge — the only label shown on the image
                             Positioned(
-                              top: 10, left: 10,
+                              bottom: 10, left: 10,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
-                                  color: AppColors.green,
-                                  borderRadius: BorderRadius.circular(5),
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
-                                  'NEW',
-                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                                child: Text(
+                                  bhkName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
                             ),
@@ -319,20 +333,27 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                           ],
                         ),
 
-                        const SizedBox(height: 8),
-                        Text(
-                          fullName,
-                          style: TextStyle(
-                            fontSize: R.sp(context, 15),
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            5, (_) => const Icon(Icons.star, color: AppColors.star, size: 15),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  fullName,
+                                  style: TextStyle(
+                                    fontSize: R.sp(context, 15),
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                children: List.generate(
+                                  5, (_) => const Icon(Icons.star, color: AppColors.star, size: 14),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

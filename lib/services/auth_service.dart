@@ -1,10 +1,11 @@
 // lib/services/auth_service.dart
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_client.dart';
 
 class AuthService {
   final ApiClient _api = ApiClient();
+  static const _storage = FlutterSecureStorage();
 
   // register मधून mobile काढा — API doc मध्ये नाही
   Future<Map<String, dynamic>> register({
@@ -23,11 +24,11 @@ class AuthService {
     );
     final data = response.data['data'] ?? response.data;
     if (data['token'] != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', data['token']);
+      await _storage.write(key: 'auth_token', value: data['token']);
     }
     return data;
   }
+
   // ✅ Login
   Future<Map<String, dynamic>> login({
     required String email,
@@ -43,8 +44,7 @@ class AuthService {
 
     final data = response.data['data'] ?? response.data;
     if (data['token'] != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', data['token']);
+      await _storage.write(key: 'auth_token', value: data['token']);
     }
 
     return data;
@@ -53,8 +53,7 @@ class AuthService {
   // ✅ Logout
   Future<void> logout() async {
     await _api.post('/auth/logout');
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    await _storage.delete(key: 'auth_token');
   }
 
   // ✅ Get Profile
@@ -123,12 +122,11 @@ class AuthService {
   }
 
   Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token') != null;
+    final token = await _storage.read(key: 'auth_token');
+    return token != null;
   }
 
   Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return await _storage.read(key: 'auth_token');
   }
 }

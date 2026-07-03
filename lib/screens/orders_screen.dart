@@ -7,7 +7,9 @@ import 'package:dcs_app/providers/order_provider.dart';
 import '../providers/auth_provider.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
-  const OrdersScreen({super.key});
+  final bool embedded; // ✅ true = bottom nav tab, false = pushed route
+
+  const OrdersScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
@@ -35,8 +37,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        // ✅ NEW: back button
-        leading: IconButton(
+        automaticallyImplyLeading: false,
+        // ✅ Tab म्हणून उघडली असेल तर back button नकोच — bottom nav आधीच navigation देतो
+        leading: widget.embedded
+            ? null
+            : IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),

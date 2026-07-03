@@ -15,7 +15,6 @@ import 'package:dcs_app/screens/our_team_section.dart';
 import 'package:dcs_app/providers/home_provider.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:dcs_app/screens/special_offer_dialog.dart'; // 👈 naveen import
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,7 +26,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final String _whatsappNumber = '918485854972';
-  bool _offerShown = false; // 👈 popup ekdach dakhavण्यासाठी flag
 
   @override
   void initState() {
@@ -35,14 +33,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Future.microtask(() =>
         ref.read(homeProvider.notifier).getHomeData(),
     );
-
-    // ✅ App open zalyavar ekdach special offer popup dakhava
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_offerShown && mounted) {
-        _offerShown = true;
-        SpecialOfferDialog.show(context);
-      }
-    });
   }
 
   Future<void> _openWhatsApp() async {

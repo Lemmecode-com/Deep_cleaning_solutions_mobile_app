@@ -197,7 +197,8 @@ class _MainShellState extends State<MainShell> {
   List<Widget> get _screens {
     final screens = <Widget>[const HomeScreen()];
     if (FeatureFlags.showBlogs)  screens.add(const BlogsScreen());
-    if (FeatureFlags.showOrders) screens.add(const OrdersScreen());
+    // ✅ CHANGED: embedded: true — bottom nav tab असल्यामुळे back button दाखवायची गरज नाही
+    if (FeatureFlags.showOrders) screens.add(const OrdersScreen(embedded: true));
     screens.add(const ProfileScreen());
     return screens;
   }

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,6 +10,7 @@ class ApiClient {
   ApiClient._internal();
 
   late final Dio _dio;
+  static const _storage = FlutterSecureStorage();
 
   // ✅ 401 वर callback — main.dart मधून set करा
   static void Function()? onUnauthorized;
@@ -33,12 +35,12 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('auth_token');
+          final token = await _storage.read(key: 'auth_token');
 
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           } else {
+            final prefs = await SharedPreferences.getInstance();
             final guestId = prefs.getString('guest_id')
                 ?? await _createGuestId(prefs);
             options.headers['X-Guest-Id'] = guestId;
@@ -69,10 +71,9 @@ class ApiClient {
           }
 
           if (error.response?.statusCode == 401) {
-            final prefs = await SharedPreferences.getInstance();
-            final hadToken = prefs.getString('auth_token') != null;
+            final hadToken = await _storage.read(key: 'auth_token') != null;
 
-            await prefs.remove('auth_token');
+            await _storage.delete(key: 'auth_token');
 
             // ✅ Guest असताना 401 आला तर ignore — फक्त खरा logged-in session expire झाला तरच redirect
             if (hadToken && !suppressUnauthorizedRedirect) {
@@ -123,7 +124,6 @@ class ApiClient {
     }
   }
 
-  // ✅ Improved — Laravel validation errors असतील तर खरा, नेमका मेसेज काढतो
   String _handleError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
