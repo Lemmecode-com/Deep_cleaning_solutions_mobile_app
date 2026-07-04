@@ -211,6 +211,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   // ── Apply Coupon ─────────────────────────────────────────────────
+  // ✅ FIX: now passes the already-selected area's id as country_id so
+  // the backend doesn't drop shipping_charge to 0 when applying a coupon.
   Future<bool> applyCoupon(String code) async {
     state = OrderState(
       isLoading: state.isLoading, orders: state.orders, selectedOrder: state.selectedOrder,
@@ -222,7 +224,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
       suggestedAreaId: state.suggestedAreaId,
     );
     try {
-      final response = await _orderService.applyCoupon(code: code);
+      final response = await _orderService.applyCoupon(
+        code: code,
+        countryId: state.selectedAreaId, // ✅ NEW
+      );
       _applySummary(response['data'] ?? {}, couponLoadingDone: true);
       return true;
     } catch (e) {
@@ -241,10 +246,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   // ── Remove Coupon ────────────────────────────────────────────────
+  // ✅ FIX: same as applyCoupon — pass the selected area's id along.
   Future<void> removeCoupon() async {
     state = state.copyWith(isCouponLoading: true);
     try {
-      final response = await _orderService.removeCoupon();
+      final response = await _orderService.removeCoupon(
+        countryId: state.selectedAreaId, // ✅ NEW
+      );
       _applySummary(response['data'] ?? {}, couponLoadingDone: true);
     } catch (e) {
       state = state.copyWith(isCouponLoading: false, error: e.toString());

@@ -62,22 +62,30 @@ class OrderService {
     return response.data;
   }
 
-  // ✅ POST /checkout/apply-coupon
-  Future<Map<String, dynamic>> applyCoupon({required String code}) async {
+  // ✅ FIX: आधी फक्त `code` पाठवला जात होता, त्यामुळे backend ला निवडलेलं
+  // area कळायचं नाही आणि shipping_charge 0 यायचा. आता `country_id` पण
+  // पाठवतो (available असेल तर).
+  Future<Map<String, dynamic>> applyCoupon({
+    required String code,
+    int? countryId, // ✅ NEW
+  }) async {
     final response = await _api.post(
       '/checkout/apply-coupon',
       data: {
         'code': code,
+        if (countryId != null) 'country_id': countryId, // ✅ NEW
       },
     );
     return response.data;
   }
 
-  // ✅ POST /checkout/remove-coupon
-  Future<Map<String, dynamic>> removeCoupon() async {
+  // ✅ FIX: तोच context remove-coupon ला पण पाठवतो
+  Future<Map<String, dynamic>> removeCoupon({int? countryId}) async {
     final response = await _api.post(
       '/checkout/remove-coupon',
-      data: {},
+      data: {
+        if (countryId != null) 'country_id': countryId, // ✅ NEW
+      },
     );
     return response.data;
   }
@@ -88,7 +96,7 @@ class OrderService {
     required String lastName,
     required String email,
     required int country,
-    String? apartment, // ✅ NEW: matches website's Flat/Bungalow No. + Wing
+    String? apartment,
     required String address,
     required String city,
     required String state,
@@ -105,7 +113,7 @@ class OrderService {
         'last_name':    lastName,
         'email':        email,
         'country':      country,
-        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment, // ✅ NEW
+        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment,
         'address':      address,
         'city':         city,
         'state':        state,
@@ -125,7 +133,7 @@ class OrderService {
     required String lastName,
     required String email,
     required int country,
-    String? apartment, // ✅ NEW: matches website's Flat/Bungalow No. + Wing
+    String? apartment,
     required String address,
     required String city,
     required String state,
@@ -142,7 +150,7 @@ class OrderService {
         'last_name':    lastName,
         'email':        email,
         'country':      country,
-        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment, // ✅ NEW
+        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment,
         'address':      address,
         'city':         city,
         'state':        state,

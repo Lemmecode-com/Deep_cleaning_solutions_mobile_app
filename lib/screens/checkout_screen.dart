@@ -23,11 +23,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _emailCtrl       = TextEditingController();
   final _mobileCtrl      = TextEditingController();
 
-  // ✅ CHANGED: single _addressCtrl replaced with the 4 fields the
-  // website actually has (Flat/Bungalow No., Wing, Society/Property
-  // Name, Landmark). Combined into `apartment` (flat+wing) and
-  // `address` (society+landmark) before hitting the API — see
-  // _buildApartmentAndAddress() below.
+  // Single _addressCtrl replaced with the 4 fields the website has
+  // (Flat/Bungalow No., Wing, Society/Property Name, Landmark). Combined
+  // into `apartment` (flat+wing) and `address` (society+landmark) before
+  // hitting the API — see _buildApartmentAndAddress() below.
   final _flatCtrl        = TextEditingController(); // Flat / Bungalow No. *
   final _wingCtrl        = TextEditingController(); // Wing (optional)
   final _societyCtrl     = TextEditingController(); // Society / Property Name *
@@ -71,10 +70,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _mobileCtrl.dispose();
-    _flatCtrl.dispose();     // ✅ NEW
-    _wingCtrl.dispose();     // ✅ NEW
-    _societyCtrl.dispose();  // ✅ NEW
-    _landmarkCtrl.dispose(); // ✅ NEW
+    _flatCtrl.dispose();
+    _wingCtrl.dispose();
+    _societyCtrl.dispose();
+    _landmarkCtrl.dispose();
     _cityCtrl.dispose();
     _stateCtrl.dispose();
     _zipCtrl.dispose();
@@ -83,8 +82,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
-  // ✅ NEW: combine the 4 address fields into the 2 the API expects,
-  // matching how the website's fields map onto `apartment` / `address`.
+  // Combine the 4 address fields into the 2 the API expects, matching how
+  // the website's fields map onto `apartment` / `address`.
   ({String apartment, String address}) _buildApartmentAndAddress() {
     final apartment = [_flatCtrl.text.trim(), _wingCtrl.text.trim()]
         .where((s) => s.isNotEmpty)
@@ -174,7 +173,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       bool success = false;
 
-      // ✅ NEW: combine the 4 address fields before sending
+      // combine the 4 address fields before sending
       final addr = _buildApartmentAndAddress();
 
       if (_isAdvancePayment) {
@@ -183,8 +182,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
           country:     _selectedAreaId!,
-          apartment:   addr.apartment, // ✅ NEW
-          address:     addr.address,   // ✅ CHANGED: was _addressCtrl.text.trim()
+          apartment:   addr.apartment,
+          address:     addr.address,
           city:        _cityCtrl.text.trim(),
           state_:      _stateCtrl.text.trim(),
           zip:         _zipCtrl.text.trim(),
@@ -199,8 +198,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
           country:     _selectedAreaId!,
-          apartment:   addr.apartment, // ✅ NEW
-          address:     addr.address,   // ✅ CHANGED: was _addressCtrl.text.trim()
+          apartment:   addr.apartment,
+          address:     addr.address,
           city:        _cityCtrl.text.trim(),
           state_:      _stateCtrl.text.trim(),
           zip:         _zipCtrl.text.trim(),
@@ -270,8 +269,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final hasSummary = _selectedAreaId != null &&
         (orderState.grandTotal > 0 || orderState.selectedAreaId == _selectedAreaId);
 
-    // ✅ FIX: previously always showed orderState.grandTotal even when
-    // "Advance Payment" was selected. Now switches to advanceAmount.
+    // Switches to advanceAmount when "Advance Payment" is selected instead
+    // of always showing the full grandTotal.
     final displayTotal = hasSummary
         ? (_isAdvancePayment ? orderState.advanceAmount : orderState.grandTotal)
         : cartState.finalAmount;
@@ -320,9 +319,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               _buildAreaDropdown(orderState),
               const SizedBox(height: 10),
 
-              // ✅ CHANGED: single "Full Address" field replaced with the
-              // website's 4 fields (Flat/Bungalow No., Wing, Society/
-              // Property Name, Landmark).
+              // Website's 4 fields (Flat/Bungalow No., Wing, Society/
+              // Property Name, Landmark) instead of a single "Full Address".
               Row(
                 children: [
                   Expanded(
@@ -531,12 +529,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 onChanged:  (v) => setState(() => _isAdvancePayment = v),
               ),
 
-              const SizedBox(height: 260), // ✅ increased to fit taller bottomSheet summary
+              const SizedBox(height: 320), // extra space for the taller multi-item summary sheet
             ],
           ),
         ),
       ),
       bottomSheet: Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.white,
@@ -547,33 +546,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (hasSummary) ...[
-                // ✅ NEW: Product line, matches website's "PRODUCT" row
+                // ✅ FIX: previously only cartState.cartItems.first was
+                // shown here — addons/extra services in the cart never
+                // appeared in the summary. Now every cart item is listed.
                 if (cartState.cartItems.isNotEmpty) ...[
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      (cartState.cartItems.first['name'] ??
-                          cartState.cartItems.first['service_name'] ??
-                          '').toString(),
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
-                  ),
-                  if (cartState.cartItems.first['options'] is Map &&
-                      cartState.cartItems.first['options']['sqft'] != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${cartState.cartItems.first['options']['sqft']} sq.ft.',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
+                  ...cartState.cartItems.map((item) => _CartLineItem(item: item)),
+                  const SizedBox(height: 6),
+                  const Divider(height: 16),
                 ],
                 _AmountRow('Subtotal', orderState.subtotal),
                 if (orderState.discount > 0)
                   _AmountRow('Discount', -orderState.discount, color: AppColors.green),
                 _AmountRow('Commuting Charge', orderState.shippingCharge),
                 const Divider(height: 16),
-                // ✅ NEW: both payment options shown together, like the website,
+                // Both payment options shown together, like the website,
                 // with the currently-selected one highlighted.
                 _AmountRow(
                   'Full Payment',
@@ -819,9 +805,61 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ✅ CHANGED: added `bold` and `highlighted` so Full Payment / Advance
-// Payment rows can be shown together with the selected one emphasized,
-// matching the website's order summary card.
+// ✅ NEW: renders one cart item's name (+ sqft/qty if present) and price in
+// the summary card. Used in a loop over ALL cart items (see fix above),
+// not just the first one.
+class _CartLineItem extends StatelessWidget {
+  final Map<String, dynamic> item;
+  const _CartLineItem({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final name  = (item['name'] ?? item['service_name'] ?? '').toString();
+    final price = item['price'];
+    final qty   = item['quantity'] ?? item['qty'] ?? 1;
+    final options = item['options'];
+    final sqft = (options is Map) ? options['sqft'] : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                if (sqft != null || (qty is num && qty > 1)) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (sqft != null) '$sqft sq.ft.',
+                      if (qty is num && qty > 1) 'Qty: $qty',
+                    ].join(' • '),
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (price != null)
+            Text(
+              '₹${price.toString()}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.black),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// `bold` and `highlighted` let the Full Payment / Advance Payment rows be
+// shown together with the selected one emphasized, matching the website's
+// order summary card.
 class _AmountRow extends StatelessWidget {
   final String label;
   final double amount;
