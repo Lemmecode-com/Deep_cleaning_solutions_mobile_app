@@ -130,7 +130,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: AppColors.surface,
       drawer: const SRGDrawer(),
       // ✅ NEW: pull-to-refresh — top वरून खाली ओढल्यावर getProfile() परत
-      // call होतो, त्यामुळे नाव/email/इतर profile fields ताजे होतात.
+      // call होतो, त्यामुळे नाव/email/इतर profile fields (आणि pending
+      // deletion status) ताजे होतात.
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () => ref.read(authProvider.notifier).getProfile(),
@@ -202,7 +203,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+
+                // ✅ NEW: Account-deletion pending banner — फक्त
+                // hasPendingDeletion true असेल तेव्हाच दिसतो. DPDPA
+                // requirement नुसार deletion_scheduled_at date आणि एक
+                // "Cancel Deletion" button इथे प्रॉमिनंटली दाखवला आहे.
+                if (authState.hasPendingDeletion) ...[
+                  const SizedBox(height: 16),
+                  _PendingDeletionBanner(
+                    scheduledAt: authState.deletionScheduledAt,
+                    onCancel: () async {
+                      final ok = await ref.read(authProvider.notifier).cancelAccountDeletion();
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Your account is now fully active.'),
+                            backgroundColor: AppColors.green,
+                          ),
+                        );
+                      } else if (context.mounted) {
+                        final error = ref.read(authProvider).error ?? 'Failed to cancel deletion';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(error), backgroundColor: AppColors.secondary),
+                        );
+                      }
+                    },
+                  ),
+                ] else
+                  const SizedBox(height: 16),
 
                 // ✅ Orders Stats section काढलं — Orders आधीच स्वतंत्र tab मध्ये आहे
 
@@ -241,9 +269,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           label: 'Change Password',
                           onTap: () => context.push('/change-password')),
                       _ProfileMenuItem(
-                          icon: Icons.lock_outline,
+                          icon: Icons.delete_outline, // 🔧 correct icon (lock ऐवजी)
                           label: 'Delete Account',
-                          onTap: () => context.push('')),
+                          isRed: true, // 🔧 destructive action, red रंगात दाखवा
+                          onTap: () => context.push('/delete-account')), // 🔧 empty '' fix
                       _ProfileMenuItem(
                           icon: Icons.logout,
                           label: 'Logout',
@@ -294,6 +323,77 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
     }
+  }
+}
+
+// ✅ NEW: pending-deletion banner shown at the top of the profile page
+class _PendingDeletionBanner extends StatelessWidget {
+  final String? scheduledAt;
+  final VoidCallback onCancel;
+  const _PendingDeletionBanner({required this.scheduledAt, required this.onCancel});
+
+  String _formatDate(String? isoDate) {
+    if (isoDate == null) return '';
+    try {
+      final d = DateTime.parse(isoDate);
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      return '${d.day} ${months[d.month - 1]} ${d.year}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.secondary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  scheduledAt != null
+                      ? 'Account deletion scheduled for ${_formatDate(scheduledAt)}'
+                      : 'Account deletion scheduled',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.black),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Changed your mind? You can cancel this request anytime before the deadline.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: onCancel,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Cancel Deletion', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

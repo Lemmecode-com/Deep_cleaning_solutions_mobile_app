@@ -14,12 +14,20 @@ class AuthState {
   final Map<String, dynamic>? user;
   final String? error;
 
+  // ✅ NEW: pending account-deletion tracking (DPDPA — 7-day grace period)
+  final bool hasPendingDeletion;
+  final String? deletionScheduledAt;
+  final String? activeOrderWarning;
+
   const AuthState({
     this.isLoading     = false,
     this.isLoggedIn    = false,
     this.isInitialized = false,
     this.user,
     this.error,
+    this.hasPendingDeletion  = false, // ✅ NEW
+    this.deletionScheduledAt,         // ✅ NEW
+    this.activeOrderWarning,          // ✅ NEW
   });
 
   AuthState copyWith({
@@ -28,6 +36,9 @@ class AuthState {
     bool? isInitialized,
     Map<String, dynamic>? user,
     String? error,
+    bool? hasPendingDeletion,   // ✅ NEW
+    String? deletionScheduledAt, // ✅ NEW
+    String? activeOrderWarning,  // ✅ NEW
   }) {
     return AuthState(
       isLoading:     isLoading     ?? this.isLoading,
@@ -35,6 +46,9 @@ class AuthState {
       isInitialized: isInitialized ?? this.isInitialized,
       user:          user          ?? this.user,
       error:         error         ?? this.error,
+      hasPendingDeletion:  hasPendingDeletion  ?? this.hasPendingDeletion,
+      deletionScheduledAt: deletionScheduledAt ?? this.deletionScheduledAt,
+      activeOrderWarning:  activeOrderWarning  ?? this.activeOrderWarning,
     );
   }
 }
@@ -156,11 +170,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _authService.getProfile();
+      final userData = response['user'];
       state = state.copyWith(
         isLoading:     false,
         isLoggedIn:    true,
         isInitialized: true,
-        user:          response['user'],
+        user:          userData,
+        // ✅ NEW: server-side pending deletion status sync — app restart
+        // झाल्यावरही "Cancel Deletion" banner टिकून राहावं म्हणून.
+        // (server च्या /auth/profile response मध्ये deletion_scheduled_at
+        // field असेल तर तो इथे पकडला जातो; नसेल तर काहीही परिणाम नाही.)
+        hasPendingDeletion:  userData?['deletion_scheduled_at'] != null,
+        deletionScheduledAt: userData?['deletion_scheduled_at']?.toString(),
       );
     } catch (e) {
       // ✅ token invalid/expired — guest म्हणून continue करा, login ला force नको
@@ -239,6 +260,53 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = state.copyWith(isLoading: false);
       return response['status'] == true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  // ── Delete Account ────────────────────────────────────────────────
+  // ✅ NEW: schedules deletion (7-day grace period). Account logged-in
+  // राहतो — logout करत नाही, कारण grace period मध्ये user कधीही
+  // cancel करू शकतो (see cancelAccountDeletion() खाली).
+  Future<Map<String, dynamic>?> deleteAccount({
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _authService.deleteAccount(password: password);
+      state = state.copyWith(
+        isLoading:           false,
+        hasPendingDeletion:  true,
+        deletionScheduledAt: response['deletion_scheduled_at']?.toString(),
+        activeOrderWarning:  response['active_order_warning']?.toString(),
+      );
+      return response;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return null;
+    }
+  }
+
+  // ── Cancel Account Deletion ───────────────────────────────────────
+  Future<bool> cancelAccountDeletion() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _authService.cancelAccountDeletion();
+      // ⚠️ copyWith चा `??` pattern null override करू शकत नाही, म्हणून
+      // इथे state पूर्ण नव्याने बनवली — hasPendingDeletion/deletionScheduledAt
+      // खरंच false/null करण्यासाठी हे गरजेचं आहे.
+      state = AuthState(
+        isLoading:      false,
+        isLoggedIn:     state.isLoggedIn,
+        isInitialized:  state.isInitialized,
+        user:           state.user,
+        hasPendingDeletion:  false,
+        deletionScheduledAt: null,
+        activeOrderWarning:  null,
+      );
+      return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;

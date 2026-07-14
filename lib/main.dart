@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:dcs_app/screens/change_password_screen.dart';
 import 'package:dcs_app/screens/contact_screen.dart';
+import 'package:dcs_app/screens/delete_account_screen.dart';
 import 'package:dcs_app/screens/edit_profile_screen.dart';
 import 'package:dcs_app/screens/forgot_password_screen.dart';
 import 'package:dcs_app/screens/privacy_policy_screen.dart';
@@ -170,6 +171,10 @@ class _DCSAppState extends ConsumerState<DCSApp> {
         GoRoute(
           path: '/edit-profile',
           builder: (context, state) => const EditProfileScreen(),
+        ),
+        GoRoute(
+          path: '/delete-account',
+          builder: (context, state) => const DeleteAccountScreen(),
         ),
         GoRoute(
           path: '/orders/:id',

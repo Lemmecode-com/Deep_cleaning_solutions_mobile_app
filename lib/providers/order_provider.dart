@@ -11,7 +11,9 @@ class OrderState {
   final String? redirectUrl;
   final String? error;
 
-  // Checkout area + summary state
+  // Checkout branch + area + summary state
+  final List<Map<String, dynamic>> branches; // ✅ NEW: from /checkout/init
+  final int? selectedBranchId;                // ✅ NEW
   final List<Map<String, dynamic>> cityAreas;
   final int? selectedAreaId;
   final double shippingCharge;
@@ -19,10 +21,15 @@ class OrderState {
   final double discount;
   final String? couponCode;
   final double grandTotal;
-  final double advanceAmount; // ✅ NEW: from /checkout/summary's advance_amount
+  final double advanceAmount; // from /checkout/summary's advance_amount
   final bool isInitLoading;
   final bool isCouponLoading;
   final String? couponError;
+
+  // ✅ NEW: set when a checkout attempt was blocked with a 403 because the
+  // account has a pending DPDPA deletion request. Reset to false at the
+  // start of every new processOrder/processAdvanceOrder attempt.
+  final bool isDeletionBlocked;
 
   // Area suggested from the customer's saved address (country_id),
   // returned by /checkout/init. This is a HINT for the UI dropdown only —
@@ -37,6 +44,8 @@ class OrderState {
     this.timeSlots     = const {},
     this.redirectUrl,
     this.error,
+    this.branches         = const [], // ✅ NEW
+    this.selectedBranchId,            // ✅ NEW
     this.cityAreas       = const [],
     this.selectedAreaId,
     this.shippingCharge  = 0,
@@ -44,10 +53,11 @@ class OrderState {
     this.discount         = 0,
     this.couponCode,
     this.grandTotal       = 0,
-    this.advanceAmount    = 0, // ✅ NEW
+    this.advanceAmount    = 0,
     this.isInitLoading    = false,
     this.isCouponLoading  = false,
     this.couponError,
+    this.isDeletionBlocked = false, // ✅ NEW
     this.suggestedAreaId,
   });
 
@@ -58,6 +68,8 @@ class OrderState {
     Map<String, dynamic>? timeSlots,
     String? redirectUrl,
     String? error,
+    List<Map<String, dynamic>>? branches,
+    int? selectedBranchId,
     List<Map<String, dynamic>>? cityAreas,
     int? selectedAreaId,
     double? shippingCharge,
@@ -65,10 +77,11 @@ class OrderState {
     double? discount,
     String? couponCode,
     double? grandTotal,
-    double? advanceAmount, // ✅ NEW
+    double? advanceAmount,
     bool? isInitLoading,
     bool? isCouponLoading,
     String? couponError,
+    bool? isDeletionBlocked,
     int? suggestedAreaId,
   }) {
     return OrderState(
@@ -78,6 +91,8 @@ class OrderState {
       timeSlots:     timeSlots     ?? this.timeSlots,
       redirectUrl:   redirectUrl   ?? this.redirectUrl,
       error:         error         ?? this.error,
+      branches:        branches        ?? this.branches,
+      selectedBranchId: selectedBranchId ?? this.selectedBranchId,
       cityAreas:      cityAreas      ?? this.cityAreas,
       selectedAreaId: selectedAreaId ?? this.selectedAreaId,
       shippingCharge: shippingCharge ?? this.shippingCharge,
@@ -85,10 +100,14 @@ class OrderState {
       discount:       discount       ?? this.discount,
       couponCode:     couponCode     ?? this.couponCode,
       grandTotal:     grandTotal     ?? this.grandTotal,
-      advanceAmount:  advanceAmount  ?? this.advanceAmount, // ✅ NEW
+      advanceAmount:  advanceAmount  ?? this.advanceAmount,
       isInitLoading:   isInitLoading   ?? this.isInitLoading,
       isCouponLoading: isCouponLoading ?? this.isCouponLoading,
       couponError:     couponError     ?? this.couponError,
+      // bool fields: `??` फक्त null असताना fallback करतो, त्यामुळे
+      // explicit `false` पाठवल्यास व्यवस्थित override होतं — इथे कुठलीही
+      // "explicit-null-clear" समस्या नाही.
+      isDeletionBlocked: isDeletionBlocked ?? this.isDeletionBlocked,
       suggestedAreaId: suggestedAreaId ?? this.suggestedAreaId,
     );
   }
@@ -109,6 +128,14 @@ double _toDouble(dynamic v) {
 class OrderNotifier extends StateNotifier<OrderState> {
   final OrderService _orderService = OrderService();
   OrderNotifier() : super(const OrderState());
+
+  // ✅ NEW: guards against a race condition — if the user switches city
+  // quickly, an OLDER /checkout/init request can resolve AFTER a NEWER
+  // one (network timing isn't guaranteed), which would silently overwrite
+  // the correct, just-fetched city_areas with the previous city's stale
+  // ones. Every call gets a sequence number; only the response matching
+  // the LATEST call is ever applied to state.
+  int _initRequestSeq = 0;
 
   // ── Get All Orders ─────────────────────────────────────────────────
   Future<void> getOrders({String? status, int page = 1}) async {
@@ -166,16 +193,30 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
-  // ── Checkout Init (area list + prefilled subtotal) ──────────────────
-  // Only STORES the customer's saved-address area as a suggestion
-  // (`suggestedAreaId`) — never auto-applies it. Shipping/discount/
-  // grandTotal/advanceAmount stay at 0 until the user explicitly picks
-  // an area.
-  Future<void> getCheckoutInit() async {
+  // ── Checkout Init (branches + area list + prefilled subtotal) ───────
+  // ✅ FIX: `branch_id` आता required (server-required query param).
+  // पहिल्यांदा call करताना screen कडून branchId=1 (Pune) पाठवला जातो.
+  // Branch बदलल्यावर हेच function नव्या branchId सोबत पुन्हा call होतं —
+  // तेव्हा त्या branch साठी शिल्लक असलेली area/pricing state (जी आधीच्या
+  // branch ची होती) साफ करणं गरजेचं आहे, नाहीतर चुकीच्या area सोबत wrong
+  // charge दिसू शकतो. फक्त `suggestedAreaId` (customer_address) कधीच
+  // auto-apply होत नाही — तो फक्त UI hint आहे.
+  Future<void> getCheckoutInit({required int branchId}) async {
+    final requestSeq = ++_initRequestSeq; // ✅ NEW: this call's ticket number
     state = state.copyWith(isInitLoading: true, error: null);
     try {
-      final response = await _orderService.checkoutInit();
+      final response = await _orderService.checkoutInit(branchId: branchId);
+
+      // ✅ NEW: a newer getCheckoutInit call was made while this one was
+      // still in flight — its response (once it arrives) will be the
+      // authoritative one, so drop this stale one instead of applying it.
+      if (requestSeq != _initRequestSeq) return;
+
       final data = response['data'] ?? {};
+
+      final branchesList = (data['branches'] as List<dynamic>? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
 
       final areas = (data['city_areas'] as List<dynamic>? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -188,13 +229,42 @@ class OrderNotifier extends StateNotifier<OrderState> {
         preselected = raw is int ? raw : int.tryParse(raw.toString());
       }
 
-      state = state.copyWith(
-        isInitLoading:   false,
+      final respBranchIdRaw = data['branch_id'];
+      final respBranchId = respBranchIdRaw is int
+          ? respBranchIdRaw
+          : int.tryParse(respBranchIdRaw?.toString() ?? '') ?? branchId;
+
+      // Only reset area/pricing when we're actually switching AWAY from a
+      // previously-loaded branch — first load (selectedBranchId == null)
+      // has nothing to reset anyway.
+      final branchChanged = state.selectedBranchId != null &&
+          state.selectedBranchId != respBranchId;
+
+      state = OrderState(
+        isLoading:      state.isLoading,
+        orders:         state.orders,
+        selectedOrder:  state.selectedOrder,
+        timeSlots:      branchChanged ? const {} : state.timeSlots,
+        redirectUrl:    state.redirectUrl,
+        error:          null,
+        branches:        branchesList,
+        selectedBranchId: respBranchId,
         cityAreas:       areas,
+        selectedAreaId:  branchChanged ? null : state.selectedAreaId,
+        shippingCharge:  branchChanged ? 0 : state.shippingCharge,
         subtotal:        _toDouble(data['subtotal']),
+        discount:        branchChanged ? 0 : state.discount,
+        couponCode:      branchChanged ? null : state.couponCode,
+        grandTotal:      branchChanged ? 0 : state.grandTotal,
+        advanceAmount:   branchChanged ? 0 : state.advanceAmount,
+        isInitLoading:   false,
+        isCouponLoading: false,
+        couponError:     null,
+        isDeletionBlocked: state.isDeletionBlocked,
         suggestedAreaId: preselected,
       );
     } catch (e) {
+      if (requestSeq != _initRequestSeq) return; // ✅ NEW: stale error, ignore
       state = state.copyWith(isInitLoading: false, error: e.toString());
     }
   }
@@ -214,19 +284,24 @@ class OrderNotifier extends StateNotifier<OrderState> {
   // ✅ FIX: now passes the already-selected area's id as country_id so
   // the backend doesn't drop shipping_charge to 0 when applying a coupon.
   Future<bool> applyCoupon(String code) async {
+    // ✅ NOTE: copyWith's `??` pattern can't clear a String? field to null,
+    // so we rebuild OrderState directly here to actually clear a stale
+    // couponError from a previous failed attempt.
     state = OrderState(
       isLoading: state.isLoading, orders: state.orders, selectedOrder: state.selectedOrder,
       timeSlots: state.timeSlots, redirectUrl: state.redirectUrl, error: state.error,
+      branches: state.branches, selectedBranchId: state.selectedBranchId,
       cityAreas: state.cityAreas, selectedAreaId: state.selectedAreaId,
       shippingCharge: state.shippingCharge, subtotal: state.subtotal, discount: state.discount,
       couponCode: state.couponCode, grandTotal: state.grandTotal, advanceAmount: state.advanceAmount,
       isInitLoading: state.isInitLoading, isCouponLoading: true, couponError: null,
+      isDeletionBlocked: state.isDeletionBlocked,
       suggestedAreaId: state.suggestedAreaId,
     );
     try {
       final response = await _orderService.applyCoupon(
         code: code,
-        countryId: state.selectedAreaId, // ✅ NEW
+        countryId: state.selectedAreaId,
       );
       _applySummary(response['data'] ?? {}, couponLoadingDone: true);
       return true;
@@ -234,11 +309,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
       state = OrderState(
         isLoading: state.isLoading, orders: state.orders, selectedOrder: state.selectedOrder,
         timeSlots: state.timeSlots, redirectUrl: state.redirectUrl, error: state.error,
+        branches: state.branches, selectedBranchId: state.selectedBranchId,
         cityAreas: state.cityAreas, selectedAreaId: state.selectedAreaId,
         shippingCharge: state.shippingCharge, subtotal: state.subtotal, discount: state.discount,
         couponCode: state.couponCode, grandTotal: state.grandTotal, advanceAmount: state.advanceAmount,
         isInitLoading: state.isInitLoading, isCouponLoading: false,
         couponError: 'Invalid or expired coupon code',
+        isDeletionBlocked: state.isDeletionBlocked,
         suggestedAreaId: state.suggestedAreaId,
       );
       return false;
@@ -251,7 +328,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = state.copyWith(isCouponLoading: true);
     try {
       final response = await _orderService.removeCoupon(
-        countryId: state.selectedAreaId, // ✅ NEW
+        countryId: state.selectedAreaId,
       );
       _applySummary(response['data'] ?? {}, couponLoadingDone: true);
     } catch (e) {
@@ -264,16 +341,18 @@ class OrderNotifier extends StateNotifier<OrderState> {
     state = OrderState(
       isLoading: state.isLoading, orders: state.orders, selectedOrder: state.selectedOrder,
       timeSlots: state.timeSlots, redirectUrl: state.redirectUrl, error: null,
+      branches: state.branches, selectedBranchId: state.selectedBranchId,
       cityAreas: state.cityAreas, selectedAreaId: state.selectedAreaId,
       shippingCharge: _toDouble(data['shipping_charge']),
       subtotal:       _toDouble(data['subtotal']),
       discount:       _toDouble(data['discount']),
       couponCode:     data['coupon_code']?.toString(),
       grandTotal:     _toDouble(data['grand_total']),
-      advanceAmount:  _toDouble(data['advance_amount']), // ✅ NEW
+      advanceAmount:  _toDouble(data['advance_amount']),
       isInitLoading:   false,
       isCouponLoading: couponLoadingDone ? false : state.isCouponLoading,
       couponError:     null,
+      isDeletionBlocked: state.isDeletionBlocked,
       suggestedAreaId: state.suggestedAreaId,
     );
   }
@@ -283,28 +362,29 @@ class OrderNotifier extends StateNotifier<OrderState> {
     required String firstName,
     required String lastName,
     required String email,
+    required int branchId, // ✅ NEW
     required int country,
-    String? apartment, // ✅ NEW: Flat/Bungalow No. + Wing combined
-    required String address, // Society/Property Name + Landmark combined
+    String? apartment,
+    required String address,
     required String city,
-    required String state_,
     required String zip,
     required String mobile,
     required String bookingDate,
     required String bookingTime,
     String? orderNotes,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    // ✅ reset isDeletionBlocked at the start of every new attempt
+    state = state.copyWith(isLoading: true, error: null, isDeletionBlocked: false);
     try {
       final response = await _orderService.processOrder(
         firstName:   firstName,
         lastName:    lastName,
         email:       email,
+        branchId:    branchId,
         country:     country,
-        apartment:   apartment, // ✅ NEW
+        apartment:   apartment,
         address:     address,
         city:        city,
-        state:       state_,
         zip:         zip,
         mobile:      mobile,
         bookingDate: bookingDate,
@@ -319,6 +399,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
       );
       await getOrders();
       return true;
+    } on AccountDeletionPendingException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message, isDeletionBlocked: true);
+      return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
@@ -330,28 +413,29 @@ class OrderNotifier extends StateNotifier<OrderState> {
     required String firstName,
     required String lastName,
     required String email,
+    required int branchId, // ✅ NEW
     required int country,
-    String? apartment, // ✅ NEW: Flat/Bungalow No. + Wing combined
-    required String address, // Society/Property Name + Landmark combined
+    String? apartment,
+    required String address,
     required String city,
-    required String state_,
     required String zip,
     required String mobile,
     required String bookingDate,
     required String bookingTime,
     String? orderNotes,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    // ✅ reset isDeletionBlocked at the start of every new attempt
+    state = state.copyWith(isLoading: true, error: null, isDeletionBlocked: false);
     try {
       final response = await _orderService.processAdvanceOrder(
         firstName:   firstName,
         lastName:    lastName,
         email:       email,
+        branchId:    branchId,
         country:     country,
-        apartment:   apartment, // ✅ NEW
+        apartment:   apartment,
         address:     address,
         city:        city,
-        state:       state_,
         zip:         zip,
         mobile:      mobile,
         bookingDate: bookingDate,
@@ -366,6 +450,9 @@ class OrderNotifier extends StateNotifier<OrderState> {
       );
       await getOrders();
       return true;
+    } on AccountDeletionPendingException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message, isDeletionBlocked: true);
+      return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;

@@ -32,11 +32,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _societyCtrl     = TextEditingController(); // Society / Property Name *
   final _landmarkCtrl    = TextEditingController(); // Landmark (optional)
 
-  final _cityCtrl        = TextEditingController();
-  final _stateCtrl       = TextEditingController();
+  // ✅ FIX: city/state text fields removed entirely. Per the API doc,
+  // city comes from the selected branch (`branches[].city`) and state is
+  // ALWAYS server-derived from branch_id — sending either as free text was
+  // wrong (and state is silently ignored by the server anyway).
   final _zipCtrl         = TextEditingController();
   final _couponCtrl      = TextEditingController();
   final _notesCtrl       = TextEditingController();
+
+  // ✅ FIX: no default city pre-selected. Doc says the FIRST API call
+  // must pass branch_id=1 (Pune) just to populate the branches dropdown
+  // list — but that's purely a backend requirement, not a UI default.
+  // The dropdown itself starts empty ("Select your city") and the user
+  // must actively pick one; the area dropdown only appears after that.
+  int? _selectedBranchId;
 
   // Area (city_area) selected from GET /checkout/init → city_areas
   // No default — user must pick a valid area id, server rejects unknown ids with 422.
@@ -80,8 +89,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _emailCtrl.text     = (user['email']  ?? '').toString();
         _mobileCtrl.text    = (user['mobile'] ?? user['phone'] ?? '').toString();
       }
-      // Fetch city_areas + prefill subtotal/saved address's area
-      ref.read(orderProvider.notifier).getCheckoutInit();
+      // ✅ FIX: branch_id=1 sent here only because the API requires SOME
+      // branch_id to return the `branches` list + prefill subtotal — it
+      // does NOT pre-select a city in the UI (see _selectedBranchId above).
+      ref.read(orderProvider.notifier).getCheckoutInit(branchId: 1);
     });
   }
 
@@ -95,8 +106,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _wingCtrl.dispose();
     _societyCtrl.dispose();
     _landmarkCtrl.dispose();
-    _cityCtrl.dispose();
-    _stateCtrl.dispose();
     _zipCtrl.dispose();
     _couponCtrl.dispose();
     _notesCtrl.dispose();
@@ -113,6 +122,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         .where((s) => s.isNotEmpty)
         .join(', ');
     return (apartment: apartment, address: address);
+  }
+
+  // ✅ NEW: looks up the city name string for the currently selected
+  // branch (`branches[].city`) — this is what gets sent as `city` to
+  // /checkout/process(-advance). Never hardcoded.
+  String _selectedBranchCity(OrderState orderState) {
+    final match = orderState.branches.firstWhere(
+          (b) => b['id'] == _selectedBranchId,
+      orElse: () => const {},
+    );
+    return match['city']?.toString() ?? '';
   }
 
   Future<void> _selectDate() async {
@@ -143,6 +163,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  // ✅ NEW: switching branch (city) changes the whole area list + state,
+  // so the previously-picked area is no longer valid — reset it and
+  // re-fetch /checkout/init for the new branch.
+  void _onBranchChanged(int? branchId) {
+    if (branchId == null || branchId == _selectedBranchId) return;
+    setState(() {
+      _selectedBranchId = branchId;
+      _selectedAreaId   = null;
+    });
+    ref.read(orderProvider.notifier).getCheckoutInit(branchId: branchId);
+  }
+
   void _onAreaChanged(int? areaId) {
     if (areaId == null) return;
     setState(() => _selectedAreaId = areaId);
@@ -168,8 +200,61 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await ref.read(orderProvider.notifier).removeCoupon();
   }
 
+  // ✅ NEW: shown when a checkout attempt is blocked with a 403 because
+  // the account has a pending DPDPA deletion request. Surfaces the exact
+  // backend message and offers a one-tap "Cancel Deletion" shortcut.
+  Future<void> _showDeletionBlockedDialog(String message) async {
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Account Deletion Pending', style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Not Now', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final cancelled = await ref.read(authProvider.notifier).cancelAccountDeletion();
+              if (!mounted) return;
+              if (cancelled) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Deletion request cancelled. You can now place your order.'),
+                    backgroundColor: AppColors.green,
+                  ),
+                );
+              } else {
+                final err = ref.read(authProvider).error ?? 'Could not cancel deletion request';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(err), backgroundColor: AppColors.secondary),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Cancel Deletion Request'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedBranchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your city'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
     if (_selectedAreaId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your service area'), backgroundColor: AppColors.secondary),
@@ -196,17 +281,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
       // combine the 4 address fields before sending
       final addr = _buildApartmentAndAddress();
+      final cityName = _selectedBranchCity(ref.read(orderProvider));
 
       if (_isAdvancePayment) {
         success = await ref.read(orderProvider.notifier).processAdvanceOrder(
           firstName:   _firstNameCtrl.text.trim(),
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
+          branchId:    _selectedBranchId!,
           country:     _selectedAreaId!,
           apartment:   addr.apartment,
           address:     addr.address,
-          city:        _cityCtrl.text.trim(),
-          state_:      _stateCtrl.text.trim(),
+          city:        cityName,
           zip:         _zipCtrl.text.trim(),
           mobile:      _mobileCtrl.text.trim(),
           bookingDate: _selectedDate!,
@@ -218,11 +304,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           firstName:   _firstNameCtrl.text.trim(),
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
+          branchId:    _selectedBranchId!,
           country:     _selectedAreaId!,
           apartment:   addr.apartment,
           address:     addr.address,
-          city:        _cityCtrl.text.trim(),
-          state_:      _stateCtrl.text.trim(),
+          city:        cityName,
           zip:         _zipCtrl.text.trim(),
           mobile:      _mobileCtrl.text.trim(),
           bookingDate: _selectedDate!,
@@ -251,9 +337,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
           context.go('/orders');
         }
-      } else {
-        final error = ref.read(orderProvider).error ?? 'Order failed';
-        if (mounted) {
+      } else if (mounted) {
+        // ✅ NEW: account-deletion-pending gets its own dialog with a
+        // "Cancel Deletion" shortcut instead of a plain snackbar.
+        final orderState = ref.read(orderProvider);
+        if (orderState.isDeletionBlocked) {
+          await _showDeletionBlockedDialog(
+            orderState.error ??
+                'Your account is scheduled for deletion, so new orders are '
+                    'temporarily blocked. Cancel your deletion request to continue.',
+          );
+        } else {
+          final error = orderState.error ?? 'Order failed';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(error), backgroundColor: AppColors.secondary),
           );
@@ -401,9 +496,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
-          // Re-fetches city_areas, time slots (if a date is picked), and
-          // cart/subtotal state — same data the screen loads on initState.
-          await ref.read(orderProvider.notifier).getCheckoutInit();
+          // Re-fetches branches, city_areas, time slots (if a date is picked),
+          // and cart/subtotal state — same data the screen loads on initState.
+          await ref.read(orderProvider.notifier).getCheckoutInit(branchId: _selectedBranchId ?? 1);
           if (_selectedDate != null) {
             await ref.read(orderProvider.notifier).getTimeSlots(date: _selectedDate!);
           }
@@ -441,9 +536,45 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _SectionTitle('Service Location'),
                 const SizedBox(height: 10),
 
-                // Area dropdown (city_areas from /checkout/init)
-                _buildAreaDropdown(orderState),
+                // ✅ NEW: Branch (city) dropdown — from /checkout/init →
+                // branches. Picking a branch reloads the area dropdown
+                // below for that city, and its `state` is what the server
+                // uses (never sent by the app).
+                _buildBranchDropdown(orderState),
                 const SizedBox(height: 10),
+
+                // ✅ FIX: area dropdown (city_areas from /checkout/init,
+                // scoped to the currently selected branch) only appears
+                // once the user has actually picked a city — no default
+                // area/city selection.
+                if (_selectedBranchId != null) ...[
+                  _buildAreaDropdown(orderState),
+                  const SizedBox(height: 10),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: AppColors.textMuted, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Select your city first to see available areas',
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                 // Website's 4 fields (Flat/Bungalow No., Wing, Society/
                 // Property Name, Landmark) instead of a single "Full Address".
@@ -471,15 +602,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 10),
                 _buildField(_landmarkCtrl, 'Landmark (optional)'),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: _buildField(_cityCtrl,  'City',  validator: (v) => v!.isEmpty ? 'Required' : null)),
-                    const SizedBox(width: 10),
-                    Expanded(child: _buildField(_stateCtrl, 'State', validator: (v) => v!.isEmpty ? 'Required' : null)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _buildField(_zipCtrl, 'PIN Code', keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null),
+                // ✅ FIX: city/state text fields removed — city now comes
+                // from the branch dropdown above, state is server-derived.
+                // Only the PIN code remains as a manual field.
+                _buildField(_zipCtrl, 'PIN Code', keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : (v.length != 6 ? '6 digits required' : null)),
 
                 const SizedBox(height: 20),
 
@@ -739,6 +865,51 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
+  // ✅ NEW: Branch (city) dropdown widget — from GET /checkout/init →
+  // branches. Each branch already carries its `state`, so the app never
+  // needs (or shows) a separate state field.
+  Widget _buildBranchDropdown(OrderState orderState) {
+    if (orderState.isInitLoading && orderState.branches.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 14),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButtonFormField<int>(
+          value: _selectedBranchId,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primary),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(vertical: 12),
+          ),
+          hint: const Text('Select your city', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          style: const TextStyle(fontSize: 13, color: AppColors.black),
+          items: orderState.branches.map((branch) {
+            final id    = branch['id'] as int;
+            final city  = branch['city']?.toString() ?? '';
+            final state = branch['state']?.toString() ?? '';
+            return DropdownMenuItem<int>(
+              value: id,
+              child: Text(state.isNotEmpty ? '$city, $state' : city),
+            );
+          }).toList(),
+          onChanged: _onBranchChanged,
+          validator: (v) => v == null ? 'Please select your city' : null,
+        ),
+      ),
+    );
+  }
+
   // Area dropdown widget — only show areas that actually have a rate (shipping_charge > 0)
   Widget _buildAreaDropdown(OrderState orderState) {
     if (orderState.isInitLoading && orderState.cityAreas.isEmpty) {
@@ -754,6 +925,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }).toList();
 
     return Container(
+      // ✅ FIX: forces Flutter to build a BRAND NEW dropdown widget whenever
+      // the branch changes, instead of patching/reusing the previous one.
+      // Without this key, DropdownButtonFormField can keep its internal
+      // popup-menu items cached from before the branch switch — tapping the
+      // small arrow icon happened to rebuild it correctly, but tapping the
+      // rest of the field could still open the stale, old-city menu.
+      key: ValueKey('area_dropdown_${_selectedBranchId ?? 'none'}'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.white,

@@ -47,7 +47,10 @@ app.*.map.json
 # Environment
 .env
 
-# ✅ Signing — GitHub वर जाऊ नये
+# Signing (Do not commit)
 *.jks
 *.keystore
 android/app/key.properties
+
+# Play Store audit report (Do not commit)
+PLAY_STORE_AUDIT_REPORT.md

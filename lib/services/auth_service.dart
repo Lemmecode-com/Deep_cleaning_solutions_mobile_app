@@ -131,6 +131,30 @@ class AuthService {
     return response.data;
   }
 
+  // ✅ NEW: Delete Account (DPDPA — schedules deletion after 7-day grace period)
+  // Body madhe फक्त password पाठवतो; server verify karto आणि deletion
+  // schedule करतो. Response madhe deletion_scheduled_at + (असल्यास)
+  // active_order_warning yeतो, दोन्ही AuthNotifier state madhe save होतात.
+  Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+  }) async {
+    final response = await _api.delete(
+      '/auth/account',
+      data: {'password': password},
+    );
+    final data = response.data['data'] ?? response.data;
+    return {
+      'message': response.data['message'],
+      ...data,
+    };
+  }
+
+  // ✅ NEW: Cancel a pending deletion request — account परत पूर्ण active होतो
+  Future<Map<String, dynamic>> cancelAccountDeletion() async {
+    final response = await _api.post('/auth/account/cancel-deletion');
+    return response.data;
+  }
+
   Future<bool> isLoggedIn() async {
     final token = await _storage.read(key: 'auth_token');
     return token != null;

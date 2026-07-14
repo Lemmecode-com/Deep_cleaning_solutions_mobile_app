@@ -5,6 +5,22 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+// ✅ NEW: पूर्वी `throw _handleError(e)` फक्त String throw करायचं — त्यामुळे
+// callers ना statusCode कधीच कळायचा नाही (उदा. 403 vs 404 वेगळं ओळखता येत
+// नव्हतं, फक्त message string मिळायची). आता ऐवजी हे ApiException throw
+// करतो — `toString()` अजूनही तोच message string देतो, त्यामुळे सगळीकडचे
+// existing `catch (e) { ...e.toString()... }` code बदलावे लागत नाहीत.
+// पण ज्या ठिकाणी statusCode-specific handling हवं (उदा. account-deletion
+// 403), तिथे `on ApiException catch (e)` करून `e.statusCode` वापरता येतो.
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
+  ApiException(this.message, {this.statusCode});
+
+  @override
+  String toString() => message;
+}
+
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -106,7 +122,7 @@ class ApiClient {
     try {
       return await _dio.get(path, queryParameters: queryParams);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw ApiException(_handleError(e), statusCode: e.response?.statusCode);
     }
   }
 
@@ -114,7 +130,7 @@ class ApiClient {
     try {
       return await _dio.post(path, data: data);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw ApiException(_handleError(e), statusCode: e.response?.statusCode);
     }
   }
 
@@ -122,7 +138,7 @@ class ApiClient {
     try {
       return await _dio.put(path, data: data);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw ApiException(_handleError(e), statusCode: e.response?.statusCode);
     }
   }
 
@@ -130,7 +146,7 @@ class ApiClient {
     try {
       return await _dio.delete(path, data: data);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw ApiException(_handleError(e), statusCode: e.response?.statusCode);
     }
   }
 
