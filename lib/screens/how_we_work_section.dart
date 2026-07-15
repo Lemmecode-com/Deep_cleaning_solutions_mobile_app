@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/widgets/section_title.dart';
@@ -16,9 +17,10 @@ class HowWeWorkSection extends StatefulWidget {
 class _HowWeWorkSectionState extends State<HowWeWorkSection> {
   int _current = 0;
   final PageController _ctrl = PageController();
+  Timer? _autoTimer;
 
-  // Each item: label + list of image URLs from AppImages
-  static final List<Map<String, dynamic>> _items = [
+  // Category -> images list (used to build the flattened slide list below)
+  static final List<Map<String, dynamic>> _categories = [
     {'label': 'Kitchen Deep Cleaning', 'images': AppImages.kitchen},
     {'label': 'Bedroom Cleaning',      'images': AppImages.bedroom},
     {'label': 'Bathroom Cleaning',     'images': AppImages.bathroom},
@@ -27,8 +29,60 @@ class _HowWeWorkSectionState extends State<HowWeWorkSection> {
     {'label': 'Floor Cleaning',        'images': AppImages.floor},
   ];
 
+  // Flattened list: every single image (from every category) becomes its own slide,
+  // paired with its category label — so ALL images get used, not just the first one.
+  late final List<Map<String, String>> _items = _buildFlatItems();
+
+  // Round-robin: one image from Kitchen, then one from Bedroom, then Bathroom,
+  // Hall, Window, Floor — then back to Kitchen's 2nd image, and so on.
+  // Categories with fewer images simply drop out once they run out.
+  List<Map<String, String>> _buildFlatItems() {
+    final List<Map<String, String>> flat = [];
+    final maxLen = _categories
+        .map((c) => (c['images'] as List<String>).length)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+
+    for (int i = 0; i < maxLen; i++) {
+      for (final cat in _categories) {
+        final label = cat['label'] as String;
+        final images = cat['images'] as List<String>;
+        if (i < images.length) {
+          flat.add({'label': label, 'image': images[i]});
+        }
+      }
+    }
+    return flat;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_ctrl.hasClients) return;
+      final isLast = _current >= _items.length - 1;
+      final nextPage = isLast ? 0 : _current + 1;
+      _ctrl.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoPlay() {
+    // Reset the timer whenever the user manually interacts, so it doesn't
+    // jump right after a manual swipe/tap.
+    _startAutoPlay();
+  }
+
   @override
   void dispose() {
+    _autoTimer?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -37,14 +91,24 @@ class _HowWeWorkSectionState extends State<HowWeWorkSection> {
     if (_current > 0) {
       setState(() => _current--);
       _ctrl.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    } else {
+      // wrap to last slide
+      setState(() => _current = _items.length - 1);
+      _ctrl.animateToPage(_current, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
+    _restartAutoPlay();
   }
 
   void _next() {
     if (_current < _items.length - 1) {
       setState(() => _current++);
       _ctrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    } else {
+      // wrap to first slide
+      setState(() => _current = 0);
+      _ctrl.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
+    _restartAutoPlay();
   }
 
   @override
@@ -66,10 +130,8 @@ class _HowWeWorkSectionState extends State<HowWeWorkSection> {
                   itemCount: _items.length,
                   onPageChanged: (i) => setState(() => _current = i),
                   itemBuilder: (_, i) {
-                    final item   = _items[i];
-                    final images = item['images'] as List<String>;
-                    // Pick first image as hero
-                    final imageUrl = images.isNotEmpty ? images[0] : '';
+                    final item = _items[i];
+                    final imageUrl = item['image'] ?? '';
 
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -94,7 +156,7 @@ class _HowWeWorkSectionState extends State<HowWeWorkSection> {
                                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                               ),
                               child: Text(
-                                item['label'] as String,
+                                item['label'] ?? '',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white,
