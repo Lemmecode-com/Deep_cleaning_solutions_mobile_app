@@ -1,0 +1,61 @@
+name: DCS App - Build APK only (for test)
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'feature'
+jobs:
+  build:
+    name: Flutter Build APK with Tests
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+      # 2. Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      # 3. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: 'stable'
+      # 4. Create .env file
+      - name: Create .env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env
+      # 5. Get dependencies
+      - name: Get Flutter Dependencies
+        run: flutter pub get
+      # 6. Run Tests
+      - name: Run Flutter Tests
+        run: flutter test
+      # 7. Decode Keystore
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/dcs.keystore
+      # 8. Create key.properties
+      - name: Create key.properties
+        run: |
+          printf "storePassword=${{ secrets.KEYSTORE_PASSWORD }}\n" > android/key.properties
+          printf "keyPassword=${{ secrets.KEY_PASSWORD }}\n" >> android/key.properties
+          printf "keyAlias=${{ secrets.KEY_ALIAS }}\n" >> android/key.properties
+          printf "storeFile=../dcs.keystore\n" >> android/key.properties
+      # 9. Build Release APK
+      - name: Build Release APK
+        run: flutter build apk --release
+      # 10. Upload Release APK
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7

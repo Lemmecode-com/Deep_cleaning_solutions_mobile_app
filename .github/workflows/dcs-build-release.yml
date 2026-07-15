@@ -1,0 +1,89 @@
+name: DCS App - Build APK & AAB (for production)
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'feature'
+jobs:
+  build:
+    name: Flutter Build with Version Update
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+      # 2. Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      # 3. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: 'stable'
+      # 4. Auto Version Increment
+      - name: Increment Build Number
+        id: version
+        run: |
+          CURRENT=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_NAME=$(echo $CURRENT | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo $CURRENT | cut -d'+' -f2)
+          NEW_BUILD=$((BUILD_NUMBER + 1))
+          NEW_VERSION="${VERSION_NAME}+${NEW_BUILD}"
+          sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$NEW_BUILD" >> $GITHUB_OUTPUT
+      # 5. Create .env file
+      - name: Create .env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env
+      # 6. Get dependencies
+      - name: Get Flutter Dependencies
+        run: flutter pub get
+      # 7. Decode Keystore
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/dcs.keystore
+      # 8. Create key.properties
+      - name: Create key.properties
+        run: |
+          printf "storePassword=${{ secrets.KEYSTORE_PASSWORD }}\n" > android/key.properties
+          printf "keyPassword=${{ secrets.KEY_PASSWORD }}\n" >> android/key.properties
+          printf "keyAlias=${{ secrets.KEY_ALIAS }}\n" >> android/key.properties
+          printf "storeFile=../dcs.keystore\n" >> android/key.properties
+      # 9. Build Release APK
+      - name: Build Release APK
+        run: flutter build apk --release --shrink --obfuscate --split-debug-info=build/debug-info
+      # 10. Build Release AAB
+      - name: Build Release AAB
+        run: flutter build appbundle --release --shrink --obfuscate --split-debug-info=build/debug-info
+      # 11. Commit updated pubspec.yaml
+      - name: Commit Version Update
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+          git push origin ${{ github.event.inputs.branch }}
+      # 12. Upload Release APK
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-v${{ steps.version.outputs.new_version }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+      # 13. Upload Release AAB
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab-v${{ steps.version.outputs.new_version }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 7
