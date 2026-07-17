@@ -590,6 +590,13 @@ class _CartSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ NEW: single source of truth for both the amounts' blur state and
+    // the checkout button's disabled state, so the two always stay in
+    // sync. Amounts stay blurred as long as checkout is blocked — whether
+    // that's because no city is selected yet, or because some items in
+    // the cart aren't available in the selected city.
+    final bool shouldBlur = !hasBranchSelected || hasUnavailableItems;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -611,11 +618,12 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Subtotal', style: TextStyle(color: AppColors.textMuted)),
-                // ✅ NEW: blurred until a city is selected; tap opens picker.
+                // ✅ CHANGED: blurred whenever checkout is disabled, not
+                // just when no city is selected.
                 _BlurredAmount(
                   text: '₹${totalAmount.toStringAsFixed(0)}',
                   style: const TextStyle(color: AppColors.black),
-                  blurred: !hasBranchSelected,
+                  blurred: shouldBlur,
                   onTap: onSelectCity,
                 ),
               ],
@@ -625,11 +633,11 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Discount', style: TextStyle(color: AppColors.green)),
-                // ✅ NEW: blurred until a city is selected; tap opens picker.
+                // ✅ CHANGED: blurred whenever checkout is disabled.
                 _BlurredAmount(
                   text: '-₹${discountAmount.toStringAsFixed(0)}',
                   style: const TextStyle(color: AppColors.green),
-                  blurred: !hasBranchSelected,
+                  blurred: shouldBlur,
                   onTap: onSelectCity,
                 ),
               ],
@@ -643,8 +651,8 @@ class _CartSummary extends StatelessWidget {
                 'Total',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
-              // ✅ NEW: blurred until a city is selected — the real,
-              // branch-aware total isn't known yet. Tap opens the picker.
+              // ✅ CHANGED: blurred whenever checkout is disabled — the
+              // "real" total that matters is the one you can actually pay.
               _BlurredAmount(
                 text: '₹${finalAmount.toStringAsFixed(0)}',
                 style: const TextStyle(
@@ -652,21 +660,22 @@ class _CartSummary extends StatelessWidget {
                   fontSize: 16,
                   color: AppColors.primary,
                 ),
-                blurred: !hasBranchSelected,
+                blurred: shouldBlur,
                 onTap: onSelectCity,
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // ✅ CHANGED: single "Proceed to Checkout" button now — it no
-          // longer swaps into a different action button. It's simply
-          // disabled (greyed out, not tappable) until:
+          // ✅ Single "Proceed to Checkout" button — disabled (greyed out,
+          // not tappable) until:
           //   1. a city is selected, AND
           //   2. no cart items are unavailable in that city.
-          // The label under it explains what's still needed.
+          // The label under it explains what's still needed. Uses the
+          // same `shouldBlur` flag as the amounts above, so button state
+          // and amount visibility never drift apart.
           Builder(
             builder: (context) {
-              final canCheckout = hasBranchSelected && !hasUnavailableItems;
+              final canCheckout = !shouldBlur; // ✅ CHANGED: reuse shouldBlur
               String? blockedReason;
               if (!hasBranchSelected) {
                 blockedReason = 'Select a city above to enable checkout';
