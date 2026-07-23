@@ -55,7 +55,9 @@ class FlatCategoryScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            // ✅ FIX: प्रत्येक category आता स्वतःच्या bordered card मध्ये
+            // असल्यामुळे थोडं कमी gap पुरेसं आहे.
+            const SizedBox(height: 20),
             _FlatCategoryCard(
               title: 'Unfurnished Flats',
               imageUrl: AppImages.unfurnishedFlat,
@@ -89,40 +91,59 @@ class _FlatCategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          AppNetworkImage(
-            url: imageUrl,
-            width: double.infinity,
-            height: R.wp(context, 62),
-            fit: BoxFit.cover,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: R.sp(context, 15),
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+      // ✅ FIX: image + title + button भोवती एक border/card टाकला —
+      // त्यामुळे कुठलं "EXPLORE NOW" बटण कुठल्या category चं आहे ते
+      // स्पष्ट दिसेल (आधी दोन्ही categories मध्ये फक्त space होतं,
+      // ownership स्पष्ट दिसत नव्हती).
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border, width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 9),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              elevation: 0,
+          ],
+        ),
+        child: Column(
+          children: [
+            AppNetworkImage(
+              url: imageUrl,
+              width: double.infinity,
+              height: R.wp(context, 62),
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
-              'EXPLORE NOW',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: R.sp(context, 15),
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'EXPLORE NOW',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

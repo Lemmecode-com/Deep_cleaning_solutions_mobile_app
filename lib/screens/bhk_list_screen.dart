@@ -121,7 +121,7 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
             onTap: onLogin,
             child: const Text(
               'Login',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
             ),
           ),
         ],
