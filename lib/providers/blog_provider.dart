@@ -6,7 +6,7 @@ import '../services/blog_service.dart';
 class BlogState {
   final bool isLoading;
   final List<dynamic> blogs;
-  final List<dynamic> categories;  // ← परत add केलं
+  final List<dynamic> categories;
   final Map<String, dynamic>? selectedBlog;
   final int selectedCategory;
   final String? error;
@@ -14,7 +14,7 @@ class BlogState {
   const BlogState({
     this.isLoading        = false,
     this.blogs            = const [],
-    this.categories       = const [],  // ← परत add केलं
+    this.categories       = const [],
     this.selectedBlog,
     this.selectedCategory = 0,
     this.error,
@@ -23,7 +23,7 @@ class BlogState {
   BlogState copyWith({
     bool? isLoading,
     List<dynamic>? blogs,
-    List<dynamic>? categories,  // ← परत add केलं
+    List<dynamic>? categories,
     Map<String, dynamic>? selectedBlog,
     int? selectedCategory,
     String? error,
@@ -31,7 +31,7 @@ class BlogState {
     return BlogState(
       isLoading:        isLoading        ?? this.isLoading,
       blogs:            blogs            ?? this.blogs,
-      categories:       categories       ?? this.categories,  // ← परत add केलं
+      categories:       categories       ?? this.categories,
       selectedBlog:     selectedBlog     ?? this.selectedBlog,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       error:            error            ?? this.error,
@@ -40,9 +40,15 @@ class BlogState {
 }
 
 class BlogNotifier extends StateNotifier<BlogState> {
-  final BlogService _blogService = BlogService();
+  final BlogService _blogService;
 
-  BlogNotifier() : super(const BlogState());
+  // ✅ CHANGED (testability साठी): आधी `final BlogService _blogService =
+  // BlogService();` कायमचं fixed होतं. आता optional named parameter —
+  // टेस्टमध्ये BlogNotifier(blogService: mockBlogService) करून mock
+  // घुसवता येतो.
+  BlogNotifier({BlogService? blogService})
+      : _blogService = blogService ?? BlogService(),
+        super(const BlogState());
 
   // ── Get All Blogs ──────────────────────────────────────────────────
   // ✅ categories पण इथूनच येतात
@@ -62,7 +68,7 @@ class BlogNotifier extends StateNotifier<BlogState> {
       state = state.copyWith(
         isLoading:  false,
         blogs:      data['blogs']      ?? [],
-        categories: data['categories'] ?? [],  // ← /blogs मधूनच categories
+        categories: data['categories'] ?? [],
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -118,9 +124,35 @@ class BlogNotifier extends StateNotifier<BlogState> {
     }
   }
 
-  Future<void> refresh()   => getBlogs();
-  void clearError()        => state = state.copyWith(error: null);
-  void clearSelectedBlog() => state = state.copyWith(selectedBlog: null);
+  Future<void> refresh() => getBlogs();
+
+  // ✅ FIX: तोच copyWith null-clearing bug (wishlist/product_provider मध्ये
+  // सापडला होता तोच) — `null ?? this.error` जुनाच error ठेवतो, त्यामुळे आधी
+  // हे function प्रत्यक्षात काहीच करत नव्हतं. State थेट rebuild करून खरंच
+  // clear करतो.
+  void clearError() {
+    state = BlogState(
+      isLoading:        state.isLoading,
+      blogs:             state.blogs,
+      categories:        state.categories,
+      selectedBlog:      state.selectedBlog,
+      selectedCategory:  state.selectedCategory,
+      error:             null,
+    );
+  }
+
+  // ✅ FIX: तोच bug — clearSelectedBlog पण `?? this.selectedBlog` मुळे
+  // कधीच null करत नव्हतं (जुना selectedBlog कायम राहायचा). थेट rebuild.
+  void clearSelectedBlog() {
+    state = BlogState(
+      isLoading:        state.isLoading,
+      blogs:             state.blogs,
+      categories:        state.categories,
+      selectedBlog:      null,
+      selectedCategory:  state.selectedCategory,
+      error:             state.error,
+    );
+  }
 }
 
 final blogProvider = StateNotifierProvider<BlogNotifier, BlogState>(
