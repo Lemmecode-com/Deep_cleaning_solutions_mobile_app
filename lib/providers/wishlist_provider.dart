@@ -33,10 +33,17 @@ class WishlistState {
 }
 
 class WishlistNotifier extends StateNotifier<WishlistState> {
-  final WishlistService _wishlistService = WishlistService();
+  final WishlistService _wishlistService;
   final Ref _ref;
 
-  WishlistNotifier(this._ref) : super(const WishlistState());
+  // ✅ CHANGED (testability साठी): आधी `final WishlistService
+  // _wishlistService = WishlistService();` कायमचं fixed होतं. आता
+  // optional named parameter — टेस्टमध्ये
+  // WishlistNotifier(ref, wishlistService: mockWishlistService) करून
+  // mock घुसवता येतो.
+  WishlistNotifier(this._ref, {WishlistService? wishlistService})
+      : _wishlistService = wishlistService ?? WishlistService(),
+        super(const WishlistState());
 
   bool _isLoggedIn() => _ref.read(authProvider).isLoggedIn;
 
@@ -122,8 +129,17 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
         .any((item) => (item['id'] as int?) == productId);
   }
 
+  // ✅ FIX: तोच copyWith null-clearing bug (product_provider मध्ये सापडला
+  // होता तोच) — `null ?? this.error` जुनाच error ठेवतो, त्यामुळे आधी हे
+  // function प्रत्यक्षात काहीच करत नव्हतं. State थेट rebuild करून खरंच
+  // clear करतो.
   void clearError() {
-    state = state.copyWith(error: null);
+    state = WishlistState(
+      isLoading:     state.isLoading,
+      wishlistItems: state.wishlistItems,
+      wishlistCount: state.wishlistCount,
+      error:         null,
+    );
   }
 }
 
