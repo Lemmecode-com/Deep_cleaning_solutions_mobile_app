@@ -56,10 +56,20 @@ class AuthState {
 
 // ── Auth Notifier ─────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   final Ref _ref; // ✅ NEW
 
-  AuthNotifier(this._ref) : super(const AuthState()) { // ✅ CHANGED
+  // ✅ CHANGED (testability साठी): आधी `final AuthService _authService =
+  // AuthService();` असं कायमचं fixed होतं — टेस्टमध्ये mock घुसवताच येत
+  // नव्हता. आता `authService` हा optional named parameter आहे:
+  //   - खऱ्या app मध्ये: काहीच बदलत नाही, आपोआप खरं AuthService() वापरतं
+  //     (main.dart / provider definition मध्ये authService पास केलेला
+  //     नाही, त्यामुळे `?? AuthService()` कायम trigger होतं).
+  //   - टेस्टमध्ये: AuthNotifier(ref, authService: mockAuthService) असं
+  //     करून खोटा (mock) service आत घुसवता येतो.
+  AuthNotifier(this._ref, {AuthService? authService})
+      : _authService = authService ?? AuthService(),
+        super(const AuthState()) {
     _checkLoginStatus();
   }
 
