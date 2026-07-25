@@ -7,6 +7,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 import 'package:dcs_app/services/enquiry_service.dart';
+import 'package:dcs_app/widgets/terms_checkbox.dart';
 
 class EnquiryFormScreen extends ConsumerStatefulWidget {
   final String serviceName;
@@ -32,6 +33,9 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   DateTime? _selectedDate;
   bool _isLoading = false;
   bool _orderInspection = false;
+
+  // ✅ NEW: mandatory Terms & Conditions / Privacy Policy agreement
+  bool _agreedToTerms = false;
 
   final EnquiryService _enquiryService = EnquiryService();
 
@@ -141,6 +145,14 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
     if (!_orderInspection) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please check "Order inspection" to proceed'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
+
+    // ✅ NEW: block enquiry submission until Terms & Privacy Policy are accepted
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please agree to Terms & Conditions and Privacy Policy'), backgroundColor: AppColors.secondary),
       );
       return;
     }
@@ -435,7 +447,14 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+
+              // ✅ NEW: mandatory Terms & Conditions / Privacy Policy checkbox
+              TermsCheckbox(
+                value: _agreedToTerms,
+                onChanged: (v) => setState(() => _agreedToTerms = v),
+              ),
+              const SizedBox(height: 10),
 
               // ── Submit Button ──────────────────
               SizedBox(

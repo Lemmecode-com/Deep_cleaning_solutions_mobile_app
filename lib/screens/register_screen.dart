@@ -8,6 +8,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/widgets/terms_checkbox.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -27,6 +28,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscureConfirmPassword  = true;
   bool _didNavigateAfterRegister = false;
 
+  // ✅ NEW: mandatory Terms & Conditions / Privacy Policy agreement
+  bool _agreedToTerms = false;
+
   // ✅ FIX: Indian mobile number — exactly 10 digits, first digit 6-9
   final RegExp _mobileRegex = RegExp(r'^[6-9]\d{9}$');
 
@@ -42,6 +46,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // ✅ NEW: block registration until Terms & Privacy Policy are accepted
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(
+          content: Text('Please agree to Terms & Conditions and Privacy Policy'),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
 
     // ✅ mobile काढला — API doc मध्ये register मध्ये mobile नाही
     final success = await ref.read(authProvider.notifier).register(
@@ -263,7 +280,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
+
+                    // ✅ NEW: mandatory Terms & Conditions / Privacy Policy checkbox
+                    TermsCheckbox(
+                      value: _agreedToTerms,
+                      onChanged: (v) => setState(() => _agreedToTerms = v),
+                    ),
+                    const SizedBox(height: 8),
 
                     // Register Button
                     SizedBox(

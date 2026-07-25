@@ -51,9 +51,17 @@ class AuthService {
   }
 
   // ✅ Logout
+  // ✅ FIX: try-finally ne wrap kelay — logout API call fail zali
+  // (internet नाही / server error) tarihi local auth_token nakki
+  // delete hoil. Aadhi API fail zali tar token local device var
+  // tasach rahat hota ani user "logout" zalyasarkha vatat hota
+  // pan session valid rahायचं.
   Future<void> logout() async {
-    await _api.post('/auth/logout');
-    await _storage.delete(key: 'auth_token');
+    try {
+      await _api.post('/auth/logout');
+    } finally {
+      await _storage.delete(key: 'auth_token');
+    }
   }
 
   // ✅ Get Profile

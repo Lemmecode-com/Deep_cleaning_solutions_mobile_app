@@ -1,3 +1,5 @@
+// lib/screens/order_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
@@ -22,7 +24,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
 
   @override
   void dispose() {
-    Future.microtask(() => ref.read(orderProvider.notifier).clearSelectedOrder());
+    // ✅ FIX: dispose() नंतर `ref` वापरणं क्रॅश देत होतं (widget आधीच
+    // disposed असतो). notifier ला थेट, widget lifecycle बाहेर वेगळं
+    // capture करून वापरतोय — Future.microtask च्या आत `ref` touch करत नाही.
+    final notifier = ref.read(orderProvider.notifier);
+    Future.microtask(() => notifier.clearSelectedOrder());
     super.dispose();
   }
 
@@ -56,27 +62,28 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                 _InfoRow('Order Number', order['order_number']?.toString() ?? ''),
                 _InfoRow('Status', order['status']?.toString() ?? ''),
                 _InfoRow('Payment Status', order['payment_status']?.toString() ?? ''),
-                // ✅ readable format — ISO string ऐवजी "03 Jul 2026", "1:00 PM"
                 _InfoRow('Booking Date', formatBookingDate(order['booking_date']?.toString())),
                 _InfoRow('Booking Time', formatBookingTime(order['booking_time']?.toString())),
               ],
             ),
             const SizedBox(height: 16),
-            if (order['address'] != null)
+            // ✅ FIX: actual JSON key `shipping_address` आहे, `address`
+            // नाही — त्यामुळे हे section आधी कधीच दिसत नव्हतं.
+            if (order['shipping_address'] != null)
               _SectionCard(
                 title: 'Shipping Address',
                 children: [
-                  _InfoRow('Name', '${order['address']['first_name'] ?? ''} ${order['address']['last_name'] ?? ''}'),
-                  _InfoRow('Address', order['address']['address']?.toString() ?? ''),
-                  _InfoRow('City', order['address']['city']?.toString() ?? ''),
-                  _InfoRow('Mobile', order['address']['mobile']?.toString() ?? ''),
+                  _InfoRow('Name', '${order['shipping_address']['first_name'] ?? ''} ${order['shipping_address']['last_name'] ?? ''}'),
+                  _InfoRow('Address', order['shipping_address']['address']?.toString() ?? ''),
+                  _InfoRow('City', order['shipping_address']['city']?.toString() ?? ''),
+                  _InfoRow('Mobile', order['shipping_address']['mobile']?.toString() ?? ''),
                 ],
               ),
             const SizedBox(height: 16),
             if (order['items'] != null)
               _SectionCard(
                 title: 'Items',
-                children: (order['items'] as List).map<Widget>((item) {
+                children: (order['items'] as List? ?? []).map<Widget>((item) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
@@ -103,6 +110,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
               children: [
                 _InfoRow('Subtotal', '₹${order['subtotal'] ?? 0}'),
                 _InfoRow('Discount', '₹${order['discount'] ?? 0}'),
+                // ✅ FIX: actual field नाव `shipping` आहे (shipping_charge
+                // किंवा commuting_charge नाही).
+                _InfoRow('Commuting Charge', '₹${order['shipping'] ?? 0}'),
                 _InfoRow('Grand Total', '₹${order['grand_total'] ?? 0}', isBold: true),
               ],
             ),

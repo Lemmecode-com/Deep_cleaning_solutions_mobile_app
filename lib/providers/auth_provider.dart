@@ -1,5 +1,6 @@
 // lib/providers/auth_provider.dart
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
@@ -171,6 +172,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final response = await _authService.getProfile();
       final userData = response['user'];
+      debugPrint('PROFILE DATA: $userData');
       state = state.copyWith(
         isLoading:     false,
         isLoggedIn:    true,

@@ -8,6 +8,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/providers/cart_provider.dart';
 import 'package:dcs_app/providers/order_provider.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/widgets/terms_checkbox.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -49,6 +50,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _selectedTime;
   bool _isAdvancePayment = false;
   bool _isPlacingOrder   = false;
+
+  // ✅ NEW: mandatory Terms & Conditions / Privacy Policy agreement
+  bool _agreedToTerms = false;
 
   final GlobalKey _bottomBarKey = GlobalKey();
   double _bottomBarHeight = 160;
@@ -248,6 +252,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    // ✅ NEW: block order placement until Terms & Privacy Policy are accepted
+    if (!_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please agree to Terms & Conditions and Privacy Policy'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
+
     setState(() => _isPlacingOrder = true);
 
     try {
@@ -354,7 +366,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   // ✅ FIX: cart items ata branch-aware price sobat map hotात. Cart screen
   // sarkhach `cartProvider.notifier.finalPriceFor(rowId)` vaparун price
-  // kadhтोय, ऐवजी raw `item['price']` var avalambun rahण्याच्या — jyamule
+  // kadhтоय, ऐवजी raw `item['price']` var avalambun rahण्याच्या — jyamule
   // aadhi Order Summary madhe wrong (default) price yet hota.
   void _showOrderSummarySheet(CartState cartState, OrderState orderState) {
     showModalBottomSheet(
@@ -636,10 +648,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   else if (orderState.timeSlots.isNotEmpty) ...[
                     const Text('Select Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    // ✅ FIX: Row + Expanded ऐवजी Wrap — प्रत्येक slot card
-                    // ata equal width घेतो ani full width evenly bharते,
-                    // jyamule "Starting from ..." text lambi zalyavar right
-                    // side khali empty jaga urत नाही.
                     Row(
                       children: orderState.timeSlots.entries.toList().asMap().entries.map((indexed) {
                         final isLast = indexed.key == orderState.timeSlots.entries.length - 1;
@@ -669,10 +677,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                       style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textMuted),
                                     ),
                                     const SizedBox(height: 2),
-                                    // ✅ FIX: time ata "Starting from 10:00 AM"
-                                    // asa dakhवते, ऐवजी fakt "10:00 AM".
-                                    // Long text wrap hoto (maxLines: 2) evadhya
-                                    // narrow equal-width card madhe bसण्यासाठी.
                                     Text(
                                       'Starting from ${time.toString()}',
                                       textAlign: TextAlign.center,
@@ -751,6 +755,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   onChanged:  (v) => setState(() => _isAdvancePayment = v),
                 ),
 
+                const SizedBox(height: 16),
+
+                // ✅ NEW: mandatory Terms & Conditions / Privacy Policy checkbox.
+                // Shown here so BOTH logged-in and guest users see it before
+                // placing an order — guest checkout never visits Profile,
+                // so this is the only reliable place they'll see it.
+                TermsCheckbox(
+                  value: _agreedToTerms,
+                  onChanged: (v) => setState(() => _agreedToTerms = v),
+                ),
+
                 SizedBox(height: _bottomBarHeight + 16),
               ],
             ),
@@ -826,12 +841,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  // ✅ CHANGED (was _buildBranchDropdown): city is READ-ONLY here — it was
-  // already chosen on the Cart screen (cartProvider.selectedBranchId),
-  // which also set the session branch server-side via
-  // POST /cart/set-branch. The "Change" link has been removed entirely —
-  // city can now only be changed by going back to the Cart screen
-  // manually (e.g. via the back button), not from a button on this page.
   Widget _buildCityDisplay(OrderState orderState) {
     if (orderState.isInitLoading && orderState.branches.isEmpty) {
       return const Padding(
@@ -894,13 +903,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
             ),
           ),
-          // ✅ REMOVED: "Change" button — city can no longer be changed
-          // from the Checkout screen, only from Cart.
         ],
       ),
     );
   }
 
+  // ✅ FIX: `as int` / `as num` unsafe casts काढले. आता `as int?` /
+  // `as num?` वापरून, backend ने कधी अनपेक्षित (null/string) type
+  // पाठवली तरी entire dropdown build क्रॅश होणार नाही — फक्त तो
+  // विशिष्ट area silently वगळला जाईल (whereType filter). Valid data
+  // (जे normally असतंच) असताना behavior आधीसारखंच राहते.
   Widget _buildAreaDropdown(OrderState orderState) {
     if (orderState.isInitLoading && orderState.cityAreas.isEmpty) {
       return const Padding(
@@ -934,14 +946,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           hint: const Text('Select your area', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
           style: const TextStyle(fontSize: 13, color: AppColors.black),
           items: ratedAreas.map((area) {
-            final id     = area['id'] as int;
+            final id     = area['id'] as int?;
             final name   = area['name']?.toString() ?? '';
-            final charge = area['shipping_charge'] as num;
+            final charge = (area['shipping_charge'] as num?) ?? 0;
+            if (id == null) return null;
             return DropdownMenuItem<int>(
               value: id,
               child: Text('$name  (+₹${charge.toStringAsFixed(0)})'),
             );
-          }).toList(),
+          }).whereType<DropdownMenuItem<int>>().toList(),
           onChanged: _onAreaChanged,
           validator: (v) => v == null ? 'Please select your area' : null,
         ),
@@ -1094,20 +1107,14 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ✅ FIX: accepts an optional branch-aware `branchPrice`. When present it
-// takes priority over the raw `item['price']` (which is the default/
-// non-branch-aware price and was the source of the ₹17600 vs ₹6600 bug).
 class _CartLineItem extends StatelessWidget {
   final Map<String, dynamic> item;
-  final double? branchPrice; // ✅ NEW
+  final double? branchPrice;
   const _CartLineItem({required this.item, this.branchPrice});
 
   @override
   Widget build(BuildContext context) {
     final name  = (item['name'] ?? item['service_name'] ?? '').toString();
-    // ✅ FIX: prefer branch-aware price; fall back to raw item price only
-    // if branch price isn't available (e.g. no city selected yet, or item
-    // has no branch price entry).
     final price = branchPrice ?? item['price'];
     final qty   = item['quantity'] ?? item['qty'] ?? 1;
     final options = item['options'];

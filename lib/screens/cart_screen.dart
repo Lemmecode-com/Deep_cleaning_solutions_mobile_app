@@ -45,8 +45,6 @@ class _BlurredAmount extends StatelessWidget {
       ],
     );
 
-    // ✅ Smooth crossfade instead of an abrupt jump when the city gets
-    // selected/cleared.
     final content = AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
       switchInCurve: Curves.easeOut,
@@ -79,20 +77,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     super.initState();
     Future.microtask(() {
       ref.read(cartProvider.notifier).getCart();
-      // ✅ NEW: load branches list (city dropdown source) if not already
-      // loaded — same call checkout screen makes, just to populate the
-      // city picker here too. branch_id=1 is only to satisfy the API's
-      // requirement for SOME branch_id to return the full `branches` list
-      // — it does not select a city.
       if (ref.read(orderProvider).branches.isEmpty) {
         ref.read(orderProvider.notifier).getCheckoutInit(branchId: 1);
       }
     });
   }
 
-  // ✅ NEW: opens a bottom sheet city picker and applies the pick via
-  // cartProvider.setBranch() — sets the session branch + refreshes the
-  // cart's subtotal to branch-aware pricing immediately.
+  // ✅ FIX: `as int` unsafe cast काढला. आता `as int?` वापरतोय — जर backend
+  // ने कधी id null/string पाठवली तर तो specific city entry silently
+  // वगळला जातो (SizedBox.shrink), संपूर्ण picker क्रॅश होत नाही. Valid
+  // data (जे normally असतंच) असताना behavior आधीसारखंच राहते.
   void _openCityPicker() {
     final branches = ref.read(orderProvider).branches;
 
@@ -128,9 +122,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   itemCount: branches.length,
                   itemBuilder: (_, i) {
                     final b = branches[i];
-                    final id    = b['id'] as int;
+                    final id    = b['id'] as int?;
                     final city  = b['city']?.toString() ?? '';
                     final state = b['state']?.toString() ?? '';
+                    if (id == null) return const SizedBox.shrink();
                     final selected = ref.read(cartProvider).selectedBranchId == id;
                     return ListTile(
                       title: Text(state.isNotEmpty ? '$city, $state' : city),
@@ -162,7 +157,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final orderState = ref.watch(orderProvider);
     final cartItems  = cartState.cartItems;
 
-    // ✅ NEW: current city label for the banner, if one is selected.
     String? selectedCityLabel;
     if (cartState.selectedBranchId != null) {
       final match = orderState.branches.firstWhere(
@@ -190,15 +184,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ? _EmptyCart()
           : Column(
         children: [
-          // ✅ NEW: city selector banner — prices shown below are only
-          // accurate once a city is picked (branch-aware pricing).
           _CityBanner(
             cityLabel: selectedCityLabel,
             isLoading: cartState.isBranchLoading,
             onTap: _openCityPicker,
           ),
 
-          // ✅ NEW: warns about cart items not available in the selected city.
           if (cartState.unavailableInBranch.isNotEmpty)
             _UnavailableBanner(items: cartState.unavailableInBranch, cityLabel: selectedCityLabel),
 
@@ -214,15 +205,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   final rowId = cartItems[i]['rowId']?.toString() ?? '';
                   return _CartItemCard(
                     item: cartItems[i],
-                    // ✅ NEW: show branch-specific price when a city is
-                    // selected and this item has branch pricing loaded;
-                    // otherwise falls back to the item's own `price` field.
                     branchPrice: cartState.hasBranchSelected
                         ? ref.read(cartProvider.notifier).finalPriceFor(rowId)
                         : null,
                     isUnavailableInBranch: cartState.hasBranchSelected &&
                         ref.read(cartProvider.notifier).isUnavailableInBranch(rowId),
-                    // ✅ NEW: blur the shown price until a city is picked.
                     hasBranchSelected: cartState.hasBranchSelected,
                     onSelectCity: _openCityPicker,
                     onRemove: () => ref.read(cartProvider.notifier).removeCartItem(rowId),
@@ -236,15 +223,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             discountAmount: cartState.discountAmount,
             finalAmount: cartState.finalAmount,
             hasBranchSelected: cartState.hasBranchSelected,
-            // ✅ NEW: don't let the user reach Checkout while items that
-            // aren't available in the selected city are still in the cart.
             hasUnavailableItems: cartState.unavailableInBranch.isNotEmpty,
             onSelectCity: _openCityPicker,
             onCheckout: () {
-              // ✅ NEW: block checkout until a city/area is selected —
-              // city selection now happens only on this screen, so
-              // enforce it here instead of relying on the checkout
-              // screen's soft warning.
               if (!cartState.hasBranchSelected) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -255,10 +236,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 _openCityPicker();
                 return;
               }
-              // ✅ NEW: block checkout while unavailable-in-city items are
-              // still sitting in the cart — they'd otherwise get counted
-              // wrong (or not at all) at checkout. Ask the user to remove
-              // them first.
               if (cartState.unavailableInBranch.isNotEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -277,10 +254,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
-// ✅ CHANGED: banner prompting city selection / showing the current city —
-// ata jasta "highlighted" / lakh vedhणारा: gradient background, border,
-// subtle shadow, ani no-city state madhe bold pulse-worthy color + bigger
-// icon badge, jyamule user cha lakh pahilyach frame madhe jaईल.
 class _CityBanner extends StatelessWidget {
   final String? cityLabel;
   final bool isLoading;
@@ -292,8 +265,6 @@ class _CityBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasCity = cityLabel != null && cityLabel!.isNotEmpty;
 
-    // ✅ NEW: strong highlight color when no city picked yet — draws the
-    // eye immediately instead of blending into the background.
     final Color accent = hasCity ? AppColors.primary : AppColors.secondary;
 
     return Padding(
@@ -308,8 +279,6 @@ class _CityBanner extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              // ✅ NEW: gradient instead of flat low-opacity fill — much
-              // more visible, especially in the no-city state.
               gradient: LinearGradient(
                 colors: hasCity
                     ? [AppColors.primary.withOpacity(0.10), AppColors.primary.withOpacity(0.04)]
@@ -318,10 +287,7 @@ class _CityBanner extends StatelessWidget {
                 end: Alignment.centerRight,
               ),
               borderRadius: BorderRadius.circular(12),
-              // ✅ NEW: solid border in the accent color makes the banner
-              // read as a distinct, tappable card rather than a stripe.
               border: Border.all(color: accent.withOpacity(hasCity ? 0.35 : 0.55), width: 1.4),
-              // ✅ NEW: soft shadow so it lifts off the page.
               boxShadow: [
                 BoxShadow(
                   color: accent.withOpacity(0.15),
@@ -332,8 +298,6 @@ class _CityBanner extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // ✅ NEW: icon badge (circle chip) instead of a bare icon —
-                // gives the location pin more visual weight.
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -364,8 +328,6 @@ class _CityBanner extends StatelessWidget {
                 if (isLoading)
                   const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 else
-                // ✅ NEW: pill-shaped action button instead of plain text
-                // link — makes the "tap here" affordance obvious.
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -386,7 +348,6 @@ class _CityBanner extends StatelessWidget {
   }
 }
 
-// ✅ NEW: warning banner for cart items that have no price in the selected city.
 class _UnavailableBanner extends StatelessWidget {
   final List<dynamic> items;
   final String? cityLabel;
@@ -422,9 +383,6 @@ class _UnavailableBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          // ✅ NEW: one bullet line per unavailable item instead of a
-          // single comma-joined sentence — easier to scan when there are
-          // several items.
           ...items.map((e) {
             final name = e['name']?.toString() ?? 'This service';
             return Padding(
@@ -483,7 +441,6 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-// ✅ service_name वरून BHK image काढणारा helper
 String _getImageForService(String serviceName) {
   final name = serviceName.toLowerCase();
 
@@ -519,10 +476,10 @@ String _getImageForService(String serviceName) {
 class _CartItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onRemove;
-  final double? branchPrice; // ✅ NEW
-  final bool isUnavailableInBranch; // ✅ NEW
-  final bool hasBranchSelected; // ✅ NEW: controls price blur
-  final VoidCallback? onSelectCity; // ✅ NEW: tap-to-unblur opens city picker
+  final double? branchPrice;
+  final bool isUnavailableInBranch;
+  final bool hasBranchSelected;
+  final VoidCallback? onSelectCity;
 
   const _CartItemCard({
     required this.item,
@@ -536,8 +493,6 @@ class _CartItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int quantity    = item['quantity'] ?? 1;
-    // ✅ NEW: prefer branch-specific price when available, fall back to
-    // the cart item's own stored price otherwise.
     final double price    = branchPrice ?? (item['price'] ?? 0.0).toDouble();
     final String serviceName = item['service_name'] ?? item['name'] ?? 'Service';
 
@@ -581,15 +536,12 @@ class _CartItemCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // ✅ NEW: unavailable-in-city notice instead of a price.
                   if (isUnavailableInBranch)
                     const Text(
                       'Not available in selected city',
                       style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.w600, fontSize: 12),
                     )
                   else
-                  // ✅ NEW: price is blurred until a city is selected,
-                  // since the real (branch-aware) amount isn't known yet.
                     _BlurredAmount(
                       text: '₹${price.toStringAsFixed(0)}',
                       style: const TextStyle(
@@ -629,10 +581,10 @@ class _CartSummary extends StatelessWidget {
   final double totalAmount;
   final double discountAmount;
   final double finalAmount;
-  final bool hasBranchSelected; // ✅ NEW
-  final bool hasUnavailableItems; // ✅ NEW: blocks checkout, separate from city selection
+  final bool hasBranchSelected;
+  final bool hasUnavailableItems;
   final VoidCallback onCheckout;
-  final VoidCallback? onSelectCity; // ✅ NEW
+  final VoidCallback? onSelectCity;
 
   const _CartSummary({
     required this.totalAmount,
@@ -646,11 +598,6 @@ class _CartSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ NEW: single source of truth for both the amounts' blur state and
-    // the checkout button's disabled state, so the two always stay in
-    // sync. Amounts stay blurred as long as checkout is blocked — whether
-    // that's because no city is selected yet, or because some items in
-    // the cart aren't available in the selected city.
     final bool shouldBlur = !hasBranchSelected || hasUnavailableItems;
 
     return Container(
@@ -674,8 +621,6 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Subtotal', style: TextStyle(color: AppColors.textMuted)),
-                // ✅ CHANGED: blurred whenever checkout is disabled, not
-                // just when no city is selected.
                 _BlurredAmount(
                   text: '₹${totalAmount.toStringAsFixed(0)}',
                   style: const TextStyle(color: AppColors.black),
@@ -689,7 +634,6 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Discount', style: TextStyle(color: AppColors.green)),
-                // ✅ CHANGED: blurred whenever checkout is disabled.
                 _BlurredAmount(
                   text: '-₹${discountAmount.toStringAsFixed(0)}',
                   style: const TextStyle(color: AppColors.green),
@@ -707,8 +651,6 @@ class _CartSummary extends StatelessWidget {
                 'Total',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
-              // ✅ CHANGED: blurred whenever checkout is disabled — the
-              // "real" total that matters is the one you can actually pay.
               _BlurredAmount(
                 text: '₹${finalAmount.toStringAsFixed(0)}',
                 style: const TextStyle(
@@ -722,16 +664,9 @@ class _CartSummary extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // ✅ Single "Proceed to Checkout" button — disabled (greyed out,
-          // not tappable) until:
-          //   1. a city is selected, AND
-          //   2. no cart items are unavailable in that city.
-          // The label under it explains what's still needed. Uses the
-          // same `shouldBlur` flag as the amounts above, so button state
-          // and amount visibility never drift apart.
           Builder(
             builder: (context) {
-              final canCheckout = !shouldBlur; // ✅ CHANGED: reuse shouldBlur
+              final canCheckout = !shouldBlur;
               String? blockedReason;
               if (!hasBranchSelected) {
                 blockedReason = 'Select a city above to enable checkout';
