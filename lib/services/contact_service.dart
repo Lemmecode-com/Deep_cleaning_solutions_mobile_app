@@ -3,7 +3,12 @@
 import 'api_client.dart';
 
 class ContactService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — टेस्टमध्ये
+  // ContactService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  ContactService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ✅ FIX: phone → mobile, added 'service' field
   Future<Map<String, dynamic>> sendMessage({
