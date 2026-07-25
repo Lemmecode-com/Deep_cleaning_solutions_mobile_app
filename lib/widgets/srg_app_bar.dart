@@ -5,6 +5,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/providers/wishlist_provider.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/providers/cart_provider.dart'; // ✅ NEW: for cartCountProvider
 
 class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const SRGAppBar({super.key});
@@ -15,6 +16,7 @@ class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wishlistCount = ref.watch(wishlistCountProvider);
+    final cartCount = ref.watch(cartCountProvider); // ✅ NEW
     final isLoggedIn = ref.watch(authProvider).isLoggedIn;
 
     return AppBar(
@@ -90,9 +92,40 @@ class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.black),
-                    onPressed: () {},
+                  // ✅ FIX: cart icon आता wishlist प्रमाणेच badge दाखवतो —
+                  // cart मध्ये item add/remove केल्यावर लगेच count update होतो,
+                  // कारण cartCountProvider हा cartProvider च्या state वर depend आहे.
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.black),
+                        onPressed: () => context.push('/cart'),
+                      ),
+                      if (cartCount > 0)
+                        Positioned(
+                          top: 6, right: 6,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Text(
+                                cartCount > 99 ? '99+' : '$cartCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -115,6 +148,7 @@ class SRGSliverAppBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wishlistCount = ref.watch(wishlistCountProvider);
+    final cartCount = ref.watch(cartCountProvider); // ✅ NEW
     final isLoggedIn = ref.watch(authProvider).isLoggedIn;
 
     return SliverAppBar(
@@ -180,9 +214,38 @@ class SRGSliverAppBar extends ConsumerWidget {
                         ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.black),
-                    onPressed: () => context.push('/cart'),
+                  // ✅ FIX: cart badge इथेही (sliver version) same प्रमाणे add केला
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.black),
+                        onPressed: () => context.push('/cart'),
+                      ),
+                      if (cartCount > 0)
+                        Positioned(
+                          top: 6, right: 6,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Text(
+                                cartCount > 99 ? '99+' : '$cartCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

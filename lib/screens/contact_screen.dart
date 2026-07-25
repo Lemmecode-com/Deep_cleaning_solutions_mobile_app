@@ -169,27 +169,59 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                     const SizedBox(height: 10),
                     _InputField(ctrl: _mobileCtrl, hint: 'Mobile',  keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Required' : null),
                     const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedService,
-                          hint: const Text('Choose the service', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                          isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-                          items: _services.map((s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(s, style: const TextStyle(fontSize: 13)),
-                          )).toList(),
-                          onChanged: (v) => setState(() => _selectedService = v),
-                        ),
-                      ),
+
+                    // ✅ FIX: Service dropdown आता mandatory आहे.
+                    // काहीही निवडलं नाही तर form submit होणार नाही आणि
+                    // "Please choose a service" असा red error दिसेल.
+                    FormField<String>(
+                      initialValue: _selectedService,
+                      validator: (v) => (v == null || v.isEmpty) ? 'Please choose a service' : null,
+                      builder: (field) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: field.hasError ? AppColors.secondary : AppColors.border,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedService,
+                                  hint: const Text('Choose the service', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                                  isExpanded: true,
+                                  icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+                                  items: _services
+                                      .where((s) => s != 'Choose the service') // placeholder हा actual option नाही
+                                      .map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s, style: const TextStyle(fontSize: 13)),
+                                  ))
+                                      .toList(),
+                                  onChanged: (v) {
+                                    setState(() => _selectedService = v);
+                                    field.didChange(v);
+                                  },
+                                ),
+                              ),
+                            ),
+                            if (field.hasError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, left: 4),
+                                child: Text(
+                                  field.errorText!,
+                                  style: const TextStyle(color: AppColors.secondary, fontSize: 11),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
+
                     const SizedBox(height: 10),
                     _InputField(ctrl: _msgCtrl, hint: 'Message', maxLines: 4, validator: (v) => v!.isEmpty ? 'Required' : null),
                     const SizedBox(height: 14),

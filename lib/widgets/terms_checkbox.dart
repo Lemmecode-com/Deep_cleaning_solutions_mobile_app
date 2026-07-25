@@ -39,17 +39,32 @@ class TermsCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Checkbox(
-          value: value,
-          onChanged: (v) => onChanged(v ?? false),
-          activeColor: AppColors.primary,
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
+    return Padding(
+      // ✅ NEW: bottom spacing so whatever comes after this widget (submit
+      // button, next field, etc.) doesn't sit right on top of the text.
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // ✅ FIX: was .start — checkbox
+        // and text now align on the same visual line instead of the text
+        // floating below the checkbox.
+        children: [
+          // ✅ FIX: wrapped Checkbox in a SizedBox + set visualDensity/
+          // materialTapTargetSize to shrink its default ~48x48 hit-box.
+          // This removes the large invisible padding around the checkbox
+          // that was pushing everything apart and causing the misalignment.
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: AppColors.primary,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+          const SizedBox(width: 8), // ✅ NEW: small consistent gap instead of relying on default Checkbox padding
+          Expanded(
             child: GestureDetector(
               // ✅ Tapping the text (not just the tiny links) also toggles
               // the checkbox — bigger, easier tap target for mobile users.
@@ -86,8 +101,8 @@ class TermsCheckbox extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
