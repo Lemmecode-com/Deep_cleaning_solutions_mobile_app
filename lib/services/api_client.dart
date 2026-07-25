@@ -26,6 +26,18 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
+  // ✅ NEW (testability साठी): production मध्ये singleton तसाच राहतो —
+  // `ApiClient()` नेहमीप्रमाणे तोच cached instance देतो, `init()` नंतर
+  // Dio + interceptors सेट होतात. पण unit tests मध्ये real network,
+  // dotenv, किंवा secure-storage लागू नये म्हणून हा वेगळा named
+  // constructor — टेस्टमध्ये `ApiClient.test(mockDio)` करून थेट mock Dio
+  // इंजेक्ट करता येतो. लक्षात ठेव: हा मार्ग interceptors (auth token,
+  // guest-id, 401 redirect, retry) bypass करतो — ते `init()` मध्येच
+  // जोडले जातात, त्यामुळे फक्त get/post/put/delete + error-mapping logic
+  // यातून टेस्ट होतं.
+  @visibleForTesting
+  ApiClient.test(Dio dio) : _dio = dio;
+
   late final Dio _dio;
   static const _storage = FlutterSecureStorage();
 
