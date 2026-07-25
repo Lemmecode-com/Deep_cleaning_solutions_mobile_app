@@ -3,7 +3,12 @@
 import 'api_client.dart';
 
 class HomeService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — टेस्टमध्ये
+  // HomeService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  HomeService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ── Get Home Data ─────────────────────────────────────────────────
   Future<Map<String, dynamic>> getHomeData() async {
