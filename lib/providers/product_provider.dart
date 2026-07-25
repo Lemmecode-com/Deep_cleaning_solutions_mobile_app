@@ -50,9 +50,15 @@ class ProductState {
 
 // ── Product Notifier ──────────────────────────────────────────────────
 class ProductNotifier extends StateNotifier<ProductState> {
-  final ProductService _productService = ProductService();
+  final ProductService _productService;
 
-  ProductNotifier() : super(const ProductState());
+  // ✅ CHANGED (testability साठी): आधी `final ProductService _productService
+  // = ProductService();` कायमचं fixed होतं. आता optional named parameter —
+  // टेस्टमध्ये ProductNotifier(productService: mockProductService) करून
+  // mock घुसवता येतो.
+  ProductNotifier({ProductService? productService})
+      : _productService = productService ?? ProductService(),
+        super(const ProductState());
 
   // ── Get All Products ───────────────────────────────────────────────
   Future<void> getProducts({
@@ -190,13 +196,35 @@ class ProductNotifier extends StateNotifier<ProductState> {
   }
 
   // ── Clear Error ────────────────────────────────────────────────────
+  // ✅ FIX: copyWith मधला `??` pattern कधीच null clear करू शकत नाही
+  // (`null ?? this.error` जुनाच value ठेवतो) — त्यामुळे आधी हे function
+  // प्रत्यक्षात काहीच करत नव्हतं. State थेट rebuild करून खरंच clear करतो.
   void clearError() {
-    state = state.copyWith(error: null);
+    state = ProductState(
+      isLoading:        state.isLoading,
+      products:         state.products,
+      furnishedFlats:   state.furnishedFlats,
+      unfurnishedFlats: state.unfurnishedFlats,
+      selectedProduct:  state.selectedProduct,
+      reviews:          state.reviews,
+      searchResults:    state.searchResults,
+      error:            null,
+    );
   }
 
   // ── Clear Selected Product ─────────────────────────────────────────
+  // ✅ FIX: तोच `??` clearing bug — इथेही state rebuild करून fix केलं.
   void clearSelectedProduct() {
-    state = state.copyWith(selectedProduct: null);
+    state = ProductState(
+      isLoading:        state.isLoading,
+      products:         state.products,
+      furnishedFlats:   state.furnishedFlats,
+      unfurnishedFlats: state.unfurnishedFlats,
+      selectedProduct:  null,
+      reviews:          state.reviews,
+      searchResults:    state.searchResults,
+      error:            state.error,
+    );
   }
 }
 
