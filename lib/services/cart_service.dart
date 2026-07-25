@@ -12,7 +12,14 @@ double _parseAmount(dynamic v) {
 }
 
 class CartService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — खऱ्या app मध्ये
+  // काहीच बदलत नाही (`?? ApiClient()` कायम trigger होतं, आणि ApiClient
+  // स्वतः singleton असल्यामुळे तीच instance मिळते), टेस्टमध्ये
+  // CartService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  CartService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   Future<Map<String, dynamic>> getCart() async {
     final response = await _api.get('/cart');

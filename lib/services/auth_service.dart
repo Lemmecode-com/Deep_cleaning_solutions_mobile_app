@@ -4,8 +4,19 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_client.dart';
 
 class AuthService {
-  final ApiClient _api = ApiClient();
-  static const _storage = FlutterSecureStorage();
+  final ApiClient _api;
+  final FlutterSecureStorage _storage;
+
+  // ✅ CHANGED (testability साठी): आधी दोन्ही `ApiClient()` आणि
+  // `FlutterSecureStorage()` कायमचे fixed होते — टेस्टमध्ये real network
+  // call किंवा real secure-storage platform channel लागायचा. आता दोन्ही
+  // optional named parameters आहेत, खऱ्या app मध्ये behavior तेच राहतं
+  // (`?? ApiClient()` / `?? const FlutterSecureStorage()`), टेस्टमध्ये
+  // AuthService(apiClient: mock, storage: mockStorage) असं करून दोन्ही
+  // mock करता येतात.
+  AuthService({ApiClient? apiClient, FlutterSecureStorage? storage})
+      : _api = apiClient ?? ApiClient(),
+        _storage = storage ?? const FlutterSecureStorage();
 
   // register मधून mobile काढा — API doc मध्ये नाही
   Future<Map<String, dynamic>> register({
