@@ -74,9 +74,19 @@ class CartState {
 }
 
 class CartNotifier extends StateNotifier<CartState> {
-  final CartService _cartService = CartService();
+  final CartService _cartService;
 
-  CartNotifier() : super(const CartState()) {
+  // ✅ CHANGED (testability साठी): आधी `final CartService _cartService =
+  // CartService();` कायमचं fixed होतं — टेस्टमध्ये mock घुसवता येत
+  // नव्हता. आता `cartService` हा optional named parameter आहे:
+  //   - खऱ्या app मध्ये काहीच बदलत नाही (provider definition मध्ये
+  //     cartService पास केलेला नाही, त्यामुळे `?? CartService()` कायम
+  //     trigger होतं).
+  //   - टेस्टमध्ये CartNotifier(cartService: mockCartService) असं करून
+  //     खोटा (mock) service आत घुसवता येतो.
+  CartNotifier({CartService? cartService})
+      : _cartService = cartService ?? CartService(),
+        super(const CartState()) {
     _init();
   }
 
