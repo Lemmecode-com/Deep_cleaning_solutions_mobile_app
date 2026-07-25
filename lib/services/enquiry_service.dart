@@ -3,7 +3,12 @@
 import 'api_client.dart';
 
 class EnquiryService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — टेस्टमध्ये
+  // EnquiryService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  EnquiryService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ✅ FIX: service_type → service, removed order_inspection field
   Future<Map<String, dynamic>> submitEnquiry({
