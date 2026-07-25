@@ -3,7 +3,13 @@
 import 'api_client.dart';
 
 class ProductService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — खऱ्या app मध्ये
+  // काहीच बदलत नाही, टेस्टमध्ये ProductService(apiClient: mockApiClient)
+  // करून mock घुसवता येतो.
+  ProductService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   Future<Map<String, dynamic>> getProducts({
     String? category,
