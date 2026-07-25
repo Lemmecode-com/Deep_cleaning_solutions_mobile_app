@@ -126,8 +126,15 @@ double _toDouble(dynamic v) {
 }
 
 class OrderNotifier extends StateNotifier<OrderState> {
-  final OrderService _orderService = OrderService();
-  OrderNotifier() : super(const OrderState());
+  final OrderService _orderService;
+
+  // ✅ CHANGED (testability साठी): आधी `final OrderService _orderService =
+  // OrderService();` कायमचं fixed होतं. आता optional named parameter —
+  // टेस्टमध्ये OrderNotifier(orderService: mockOrderService) करून mock
+  // घुसवता येतो.
+  OrderNotifier({OrderService? orderService})
+      : _orderService = orderService ?? OrderService(),
+        super(const OrderState());
 
   // ✅ NEW: guards against a race condition — if the user switches city
   // quickly, an OLDER /checkout/init request can resolve AFTER a NEWER

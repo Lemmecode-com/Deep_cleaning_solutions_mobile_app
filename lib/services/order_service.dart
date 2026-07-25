@@ -16,7 +16,13 @@ class AccountDeletionPendingException implements Exception {
 }
 
 class OrderService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — खऱ्या app मध्ये
+  // काहीच बदलत नाही, टेस्टमध्ये OrderService(apiClient: mockApiClient)
+  // करून mock घुसवता येतो.
+  OrderService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ✅ GET /orders
   Future<Map<String, dynamic>> getOrders({
