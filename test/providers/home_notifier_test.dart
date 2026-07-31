@@ -19,16 +19,16 @@ void main() {
     'videos': [],
   };
 
-  // ✅ FIX: आधी buildNotifier() sync होतं आणि गृहीत धरलं होतं की
-  // constructor चा auto `getHomeData()` call नेहमी explicit call च्या
-  // आधी resolve होतो — पण प्रत्यक्षात तसं guaranteed नाही (विशेषतः
-  // `thenThrow` वापरणाऱ्या calls synchronously पूर्ण होतात, तर
-  // `thenAnswer(async => ...)` ला extra microtask लागतो — त्यामुळे
-  // ordering उलटू शकते आणि success call चा `clearError:true` नंतर
-  // येऊन test चा error state पुसून टाकत होता). आता constructor नंतर
-  // `Future.delayed(Duration.zero)` ने एक पूर्ण event-loop tick थांबतो,
-  // जेणेकरून auto-init call १००% settle झाल्यावरच पुढचा explicit call
-  // सुरू होतो — race condition संपूर्ण टळते.
+  // ✅ FIX: Previously buildNotifier() was sync and assumed that the
+  // constructor's auto `getHomeData()` call always resolves before the
+  // explicit call — but that isn't actually guaranteed (in particular,
+  // calls using `thenThrow` complete synchronously, while
+  // `thenAnswer(async => ...)` needs an extra microtask — so the ordering
+  // could flip, and the success call's `clearError:true` would come later
+  // and wipe out the test's error state). Now, after the constructor, we
+  // wait one full event-loop tick with `Future.delayed(Duration.zero)`, so
+  // the next explicit call only starts once the auto-init call has 100%
+  // settled — the race condition is fully avoided.
   Future<HomeNotifier> buildNotifier() async {
     when(() => mockHomeService.getHomeData())
         .thenAnswer((_) async => emptyHomeData());
@@ -42,7 +42,7 @@ void main() {
   });
 
   group('getHomeData', () {
-    test('success झाल्यास सगळे fields state मध्ये set होतात', () async {
+    test('all fields are set in state on success', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getHomeData()).thenAnswer(
@@ -80,7 +80,7 @@ void main() {
       expect(state.error, isNull);
     });
 
-    test('error आल्यास error state मध्ये set होतो, isLoading false', () async {
+    test('sets error state and isLoading false when an error occurs', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getHomeData())
@@ -94,7 +94,7 @@ void main() {
   });
 
   group('getBanners', () {
-    test('success झाल्यास फक्त banners update होतात, बाकी unaffected राहतात',
+    test('only banners get updated on success, everything else stays unaffected',
             () async {
           final notifier = await buildNotifier();
           when(() => mockHomeService.getHomeData()).thenAnswer(
@@ -123,7 +123,7 @@ void main() {
           expect(state.error, isNull);
         });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getBanners())
@@ -135,7 +135,7 @@ void main() {
   });
 
   group('getCategories', () {
-    test('success झाल्यास categories update होतात', () async {
+    test('categories get updated on success', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getCategories()).thenAnswer(
@@ -153,7 +153,7 @@ void main() {
       expect(notifier.state.error, isNull);
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getCategories())
@@ -165,7 +165,7 @@ void main() {
   });
 
   group('getFAQs', () {
-    test('success झाल्यास faqs update होतात', () async {
+    test('faqs get updated on success', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getFAQs()).thenAnswer(
@@ -181,7 +181,7 @@ void main() {
       expect(notifier.state.error, isNull);
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getFAQs())
@@ -193,7 +193,7 @@ void main() {
   });
 
   group('getVideos', () {
-    test('success झाल्यास videos update होतात', () async {
+    test('videos get updated on success', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getVideos()).thenAnswer(
@@ -210,7 +210,7 @@ void main() {
       expect(notifier.state.error, isNull);
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getVideos())
@@ -222,7 +222,7 @@ void main() {
   });
 
   group('refresh', () {
-    test('refresh() हे getHomeData() ला delegate करतो', () async {
+    test('refresh() delegates to getHomeData()', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getHomeData()).thenAnswer(
@@ -241,7 +241,7 @@ void main() {
   });
 
   group('clearError', () {
-    test('फक्त error null करतो, बाकी state तशीच ठेवतो', () async {
+    test('only clears error to null, keeps the rest of the state as-is', () async {
       final notifier = await buildNotifier();
 
       when(() => mockHomeService.getBanners()).thenThrow(Exception('boom'));

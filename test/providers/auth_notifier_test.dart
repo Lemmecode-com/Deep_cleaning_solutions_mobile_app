@@ -1,9 +1,10 @@
 // test/providers/auth_notifier_test.dart
 //
-// ✅ हा टेस्ट AuthNotifier चा login/logout logic तपासतो — खरा API call
-// किंवा internet न वापरता. AuthService च्या जागी खोटं (mock) AuthService
-// वापरलंय — त्यामुळे आपण control करू शकतो: "login call आला की success
-// data दे" किंवा "login call आला की error फेकून टाक".
+// ✅ This test checks AuthNotifier's login/logout logic — without making a
+// real API call or using the internet. A fake (mock) AuthService is used
+// in place of AuthService — so we can control it: "when the login call
+// comes, give a success response" or "when the login call comes, throw an
+// error".
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,42 +12,43 @@ import 'package:mocktail/mocktail.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 import 'package:dcs_app/services/auth_service.dart';
 
-// ── Step 1: खोटं (mock) AuthService बनवा ────────────────────────────
-// Mocktail चं Mock class बनवण्यासाठी हे `extends Mock` लागतं.
+// ── Step 1: Create a fake (mock) AuthService ────────────────────────
+// This `extends Mock` is needed to create Mocktail's Mock class.
 class MockAuthService extends Mock implements AuthService {}
 
 void main() {
   late MockAuthService mockAuthService;
   late ProviderContainer container;
 
-  // ── प्रत्येक test आधी नवीन (कोरी) mock + container बनवा ────────────
-  // म्हणजे एका test चा state दुसऱ्या test वर परिणाम करणार नाही.
+  // ── Create a fresh mock + container before every test ──────────────
+  // So one test's state doesn't affect another test.
   setUp(() {
     mockAuthService = MockAuthService();
 
-    // ✅ AuthNotifier चा constructor सुरू होताच _checkLoginStatus() call
-    // होतो, जो isLoggedIn() ला विचारतो. हे mock न केल्यास error येईल,
-    // म्हणून डिफॉल्ट "logged out" behavior आधीच सेट करून ठेवतोय.
+    // ✅ As soon as AuthNotifier's constructor starts, it calls
+    // _checkLoginStatus(), which asks isLoggedIn(). If this isn't mocked
+    // an error will occur, so we set up a default "logged out" behavior
+    // beforehand.
     when(() => mockAuthService.isLoggedIn())
         .thenAnswer((_) async => false);
 
     container = ProviderContainer(
       overrides: [
-        // ✅ Step 2: authProvider ला सांगा — खरं AuthService() नको,
-        // आपलं mockAuthService वापर.
+        // ✅ Step 2: Tell authProvider — don't use the real AuthService(),
+        // use our mockAuthService.
         authProvider.overrideWith(
               (ref) => AuthNotifier(ref, authService: mockAuthService),
         ),
       ],
     );
 
-    // टेस्ट संपल्यावर container clean करण्यासाठी
+    // To clean up the container after the test ends
     addTearDown(container.dispose);
   });
 
   group('AuthNotifier.login', () {
-    test('login यशस्वी झाल्यास isLoggedIn = true होतं', () async {
-      // ── Arrange: mock ला सांगा यशस्वी response दे ──────────────────
+    test('isLoggedIn becomes true when login succeeds', () async {
+      // ── Arrange: tell the mock to give a successful response ──────────────
       when(() => mockAuthService.login(
         email: any(named: 'email'),
         password: any(named: 'password'),
@@ -54,22 +56,23 @@ void main() {
         'user': {'id': 1, 'name': 'Rahul', 'email': 'rahul@test.com'},
       });
 
-      // ✅ लक्षात ठेव: login() च्या आत cartProvider.getCart() आणि
-      // wishlistProvider.getWishlist() पण call होतात. हे mock न करताही
-      // test चालतो — कारण cart_provider.dart / wishlist_provider.dart
-      // मधलं getCart()/getWishlist() स्वतःचा error स्वतःच पकडतं (catch
-      // करून फक्त स्वतःची error state सेट करतं, वर rethrow करत नाही).
-      // त्यामुळे आतमध्ये real ApiClient fail झाला तरी login() चा वरचा
-      // try/catch त्यामुळे trigger होत नाही — login() ची state clean राहते.
+      // ✅ Note: inside login(), cartProvider.getCart() and
+      // wishlistProvider.getWishlist() also get called. The test still
+      // works without mocking these — because getCart()/getWishlist() in
+      // cart_provider.dart / wishlist_provider.dart catch their own errors
+      // (catching and setting only their own error state, not rethrowing).
+      // So even if the real ApiClient fails internally, login()'s outer
+      // try/catch doesn't get triggered by it — login()'s state stays
+      // clean.
 
-      // ── Act: login() call करा ──────────────────────────────────────
+      // ── Act: call login() ──────────────────────────────────────
       final notifier = container.read(authProvider.notifier);
       final result = await notifier.login(
         email: 'rahul@test.com',
         password: 'correctpassword',
       );
 
-      // ── Assert: state आणि return value बरोबर आहे का तपासा ──────────
+      // ── Assert: check that the state and return value are correct ──────────
       final state = container.read(authProvider);
       expect(result, true);
       expect(state.isLoggedIn, true);
@@ -78,8 +81,8 @@ void main() {
       expect(state.user?['name'], 'Rahul');
     });
 
-    test('login चुकीच्या credentials मुळे fail झाल्यास error state सेट होते', () async {
-      // ── Arrange: mock ला सांगा error फेकून दे ──────────────────────
+    test('error state is set when login fails due to wrong credentials', () async {
+      // ── Arrange: tell the mock to throw an error ──────────────────
       when(() => mockAuthService.login(
         email: any(named: 'email'),
         password: any(named: 'password'),
@@ -95,14 +98,14 @@ void main() {
       // ── Assert ───────────────────────────────────────────────────
       final state = container.read(authProvider);
       expect(result, false);
-      expect(state.isLoggedIn, false); // login झालेला नाही
+      expect(state.isLoggedIn, false); // not logged in
       expect(state.isLoading, false);
       expect(state.error, contains('Invalid credentials'));
     });
   });
 
   group('AuthNotifier.logout', () {
-    test('logout झाल्यावर state रिकामी (guest) होते', () async {
+    test('state becomes empty (guest) after logout', () async {
       when(() => mockAuthService.logout()).thenAnswer((_) async {});
 
       final notifier = container.read(authProvider.notifier);

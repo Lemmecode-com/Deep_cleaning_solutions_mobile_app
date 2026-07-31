@@ -1,9 +1,9 @@
 // test/services/api_client_test.dart
 //
-// ✅ ApiClient.test(mockDio) वापरून get/post/put/delete + error-mapping
-// logic टेस्ट करतो. इंटरसेप्टर्स (auth token, guest-id, 401 redirect,
-// retry) इथे टेस्ट होत नाहीत — ते init() मध्येच जोडले जातात, त्यामुळे
-// या constructor मधून bypass होतात.
+// ✅ Uses ApiClient.test(mockDio) to test get/post/put/delete +
+// error-mapping logic. Interceptors (auth token, guest-id, 401 redirect,
+// retry) are NOT tested here — they get attached only inside init(), so
+// they're bypassed by this constructor.
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,7 +47,7 @@ void main() {
   }
 
   group('get / post / put / delete — success passthrough', () {
-    test('get() यशस्वी झाल्यास Dio चा response तसाच return करतो', () async {
+    test('get() returns Dio\'s response as-is on success', () async {
       when(() => mockDio.get('/wishlist', queryParameters: any(named: 'queryParameters')))
           .thenAnswer((_) async => _res({'ok': true}));
 
@@ -56,7 +56,7 @@ void main() {
       expect(response.data['ok'], true);
     });
 
-    test('post() यशस्वी झाल्यास Dio चा response तसाच return करतो', () async {
+    test('post() returns Dio\'s response as-is on success', () async {
       when(() => mockDio.post('/wishlist', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -66,7 +66,7 @@ void main() {
       verify(() => mockDio.post('/wishlist', data: {'a': 1})).called(1);
     });
 
-    test('put() यशस्वी झाल्यास Dio चा response तसाच return करतो', () async {
+    test('put() returns Dio\'s response as-is on success', () async {
       when(() => mockDio.put('/profile', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'updated': true}));
 
@@ -75,7 +75,7 @@ void main() {
       expect(response.data['updated'], true);
     });
 
-    test('delete() यशस्वी झाल्यास Dio चा response तसाच return करतो', () async {
+    test('delete() returns Dio\'s response as-is on success', () async {
       when(() => mockDio.delete('/wishlist', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'deleted': true}));
 
@@ -86,7 +86,7 @@ void main() {
   });
 
   group('DioException → ApiException wrapping', () {
-    test('get() मध्ये DioException आल्यास ApiException throw होतो (statusCode carry होतो)', () async {
+    test('ApiException is thrown when a DioException occurs in get() (statusCode is carried over)', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
@@ -101,7 +101,7 @@ void main() {
       );
     });
 
-    test('post() मध्ये DioException आल्यास ApiException throw होतो', () async {
+    test('ApiException is thrown when a DioException occurs in post()', () async {
       when(() => mockDio.post(any(), data: any(named: 'data')))
           .thenThrow(_dioErr(type: DioExceptionType.connectionError));
 
@@ -110,7 +110,7 @@ void main() {
   });
 
   group('_handleError — timeout / connection', () {
-    test('connectionTimeout → योग्य user-facing message', () async {
+    test('connectionTimeout → correct user-facing message', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(type: DioExceptionType.connectionTimeout));
 
@@ -122,7 +122,7 @@ void main() {
       }
     });
 
-    test('receiveTimeout → तोच timeout message', () async {
+    test('receiveTimeout → the same timeout message', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(type: DioExceptionType.receiveTimeout));
 
@@ -146,7 +146,7 @@ void main() {
       }
     });
 
-    test('अनोळखी/इतर DioExceptionType → generic fallback message', () async {
+    test('unknown/other DioExceptionType → generic fallback message', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(type: DioExceptionType.cancel));
 
@@ -159,8 +159,8 @@ void main() {
     });
   });
 
-  group('_handleError — badResponse status-code fallbacks (backend message नसताना)', () {
-    test('401 आणि data मध्ये message नसेल तर "Unauthorized. Please login again."', () async {
+  group('_handleError — badResponse status-code fallbacks (when there is no backend message)', () {
+    test('401 with no message in data → "Unauthorized. Please login again."', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
@@ -220,7 +220,7 @@ void main() {
       }
     });
 
-    test('इतर कुठलाही statusCode (उदा. 418) आणि message नसेल तर "Something went wrong."', () async {
+    test('any other statusCode (e.g. 418) with no message → "Something went wrong."', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
@@ -237,14 +237,14 @@ void main() {
   });
 
   group('_extractServerMessage — Laravel-style errors map', () {
-    test('errors map मधले सगळे field-errors एकत्र (नव्या ओळीत, duplicate काढून) दाखवतो', () async {
+    test('shows all field-errors from the errors map combined (on new lines, duplicates removed)', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
         response: _res({
           'errors': {
             'email': ['Email is required', 'Email is invalid'],
-            'mobile': ['Email is required'], // duplicate — dedupe व्हायला हवं
+            'mobile': ['Email is required'], // duplicate — should be deduped
           },
         }, statusCode: 422),
       ));
@@ -256,14 +256,14 @@ void main() {
         final msg = e.toString();
         expect(msg, contains('Email is required'));
         expect(msg, contains('Email is invalid'));
-        // dedupe: 'Email is required' फक्त एकदाच यायला हवं
+        // dedupe: 'Email is required' should appear only once
         expect('Email is required'.allMatches(msg).length, 1);
       }
     });
   });
 
   group('_extractServerMessage — flat errors list', () {
-    test('errors flat list असेल तर तेही सगळे join करून दाखवतो', () async {
+    test('when errors is a flat list, joins and shows all of them too', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
@@ -284,7 +284,7 @@ void main() {
   });
 
   group('_extractServerMessage — plain message fallback', () {
-    test('errors key नसेल पण message key असेल तर तो वापरतो', () async {
+    test('uses the message key when there is no errors key but there is a message key', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,
@@ -299,7 +299,7 @@ void main() {
       }
     });
 
-    test('data Map नसेल (उदा. null किंवा String) तर crash न होता generic fallback देतो', () async {
+    test('gives a generic fallback without crashing when data is not a Map (e.g. null or String)', () async {
       when(() => mockDio.get(any(), queryParameters: any(named: 'queryParameters')))
           .thenThrow(_dioErr(
         type: DioExceptionType.badResponse,

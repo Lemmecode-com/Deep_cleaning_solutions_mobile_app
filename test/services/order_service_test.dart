@@ -1,10 +1,10 @@
 // test/services/order_service_test.dart
 //
-// ✅ हा टेस्ट OrderService चा request-building logic तपासतो — खरा network
-// call न करता. ApiClient mock केलाय. सगळ्यात महत्त्वाचं: processOrder /
-// processAdvanceOrder मध्ये 403 (DPDPA pending deletion) आल्यास ते
-// AccountDeletionPendingException मध्ये बरोबर convert होतं का, हे इथे
-// तपासलंय.
+// ✅ This test checks OrderService's request-building logic — without
+// making a real network call. ApiClient is mocked. Most importantly: it
+// checks that a 403 (DPDPA pending deletion) in processOrder /
+// processAdvanceOrder gets correctly converted into an
+// AccountDeletionPendingException.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
@@ -20,8 +20,8 @@ Response _res(dynamic data, {int statusCode = 200}) => Response(
   statusCode:     statusCode,
 );
 
-// processOrder/processAdvanceOrder साठी सामायिक arguments — प्रत्येक
-// टेस्टमध्ये पुन्हा पुन्हा लिहिण्याऐवजी इथे एकदाच.
+// Shared arguments for processOrder/processAdvanceOrder — kept here once
+// instead of rewriting them in every single test.
 Future<Map<String, dynamic>> _callProcessOrder(
     OrderService service, {
       String? apartment,
@@ -58,7 +58,7 @@ void main() {
   });
 
   group('OrderService.getOrders', () {
-    test('status दिलेला नसेल तर queryParams मध्ये status key जातच नाही', () async {
+    test('the status key is not sent in queryParams when status is not given', () async {
       when(() => mockApi.get('/orders', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': {'orders': []}}));
 
@@ -73,7 +73,7 @@ void main() {
       expect(captured['page'], 1);
     });
 
-    test('status दिलेला असेल तर तो queryParams मध्ये जातो', () async {
+    test('status goes into queryParams when it is given', () async {
       when(() => mockApi.get('/orders', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': {'orders': []}}));
 
@@ -90,7 +90,7 @@ void main() {
   });
 
   group('OrderService.checkoutInit', () {
-    test('branch_id queryParam म्हणून पाठवतो', () async {
+    test('sends branch_id as a queryParam', () async {
       when(() => mockApi.get('/checkout/init', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': {}}));
 
@@ -104,7 +104,7 @@ void main() {
   });
 
   group('OrderService.applyCoupon / removeCoupon', () {
-    test('countryId दिलेला असेल तरच country_id body मध्ये जातो', () async {
+    test('country_id goes into the body only when countryId is given', () async {
       when(() => mockApi.post('/checkout/apply-coupon', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'data': {}}));
 
@@ -119,7 +119,7 @@ void main() {
       expect(captured['country_id'], 5);
     });
 
-    test('countryId null असेल तर country_id key body मध्ये जातच नाही', () async {
+    test('the country_id key is not sent in the body when countryId is null', () async {
       when(() => mockApi.post('/checkout/remove-coupon', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'data': {}}));
 
@@ -135,7 +135,7 @@ void main() {
   });
 
   group('OrderService.processOrder', () {
-    test('रिकाम्या apartment/orderNotes body मध्ये पाठवले जात नाहीत', () async {
+    test('empty apartment/orderNotes are not sent in the body', () async {
       when(() => mockApi.post('/checkout/process', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'data': {'id': 1}}));
 
@@ -151,7 +151,7 @@ void main() {
       expect(captured['branch_id'], 1);
     });
 
-    test('apartment/orderNotes दिलेले असतील तर body मध्ये जातात', () async {
+    test('apartment/orderNotes go into the body when they are given', () async {
       when(() => mockApi.post('/checkout/process', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'data': {'id': 1}}));
 
@@ -166,7 +166,7 @@ void main() {
       expect(captured['order_notes'], 'Ring bell twice');
     });
 
-    test('403 आल्यास AccountDeletionPendingException मध्ये convert होतो', () async {
+    test('a 403 gets converted into an AccountDeletionPendingException', () async {
       when(() => mockApi.post('/checkout/process', data: any(named: 'data')))
           .thenThrow(ApiException('Account pending deletion.', statusCode: 403));
 
@@ -176,7 +176,7 @@ void main() {
       );
     });
 
-    test('403 शिवाय दुसरा error असल्यास तसाच rethrow होतो (convert होत नाही)', () async {
+    test('any other error besides 403 is rethrown unchanged (not converted)', () async {
       when(() => mockApi.post('/checkout/process', data: any(named: 'data')))
           .thenThrow(ApiException('Server error.', statusCode: 500));
 
@@ -188,7 +188,7 @@ void main() {
   });
 
   group('OrderService.processAdvanceOrder', () {
-    test('403 आल्यास इथेही AccountDeletionPendingException मध्ये convert होतो', () async {
+    test('a 403 gets converted into an AccountDeletionPendingException here too', () async {
       when(() => mockApi.post('/checkout/process-advance', data: any(named: 'data')))
           .thenThrow(ApiException('Account pending deletion.', statusCode: 403));
 

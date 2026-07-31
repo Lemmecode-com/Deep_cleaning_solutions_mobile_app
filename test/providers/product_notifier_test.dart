@@ -1,7 +1,7 @@
 // test/providers/product_notifier_test.dart
 //
-// ✅ हा टेस्ट ProductNotifier चा state-management logic तपासतो — खरा API
-// call न करता. ProductService mock केलाय.
+// ✅ This test checks ProductNotifier's state-management logic — without
+// making a real API call. ProductService is mocked.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +30,7 @@ void main() {
   });
 
   group('ProductNotifier.getProducts', () {
-    test('यशस्वी झाल्यास products state मध्ये भरतात', () async {
+    test('fills products into state on success', () async {
       when(() => mockProductService.getProducts(
         category: any(named: 'category'),
         search:   any(named: 'search'),
@@ -51,7 +51,7 @@ void main() {
       expect(state.error, null);
     });
 
-    test('fail झाल्यास error state सेट होते, products रिकामीच राहते', () async {
+    test('sets error state and keeps products empty on failure', () async {
       when(() => mockProductService.getProducts(
         category: any(named: 'category'),
         search:   any(named: 'search'),
@@ -69,7 +69,7 @@ void main() {
   });
 
   group('ProductNotifier.getProductDetail', () {
-    test('यशस्वी झाल्यास selectedProduct state मध्ये सेट होतो', () async {
+    test('sets selectedProduct in state on success', () async {
       when(() => mockProductService.getProductDetail(any()))
           .thenAnswer((_) async => {
         'product': {'id': 5, 'name': 'AC Service', 'price': 999},
@@ -85,7 +85,7 @@ void main() {
   });
 
   group('ProductNotifier.getFurnishedFlats / getUnfurnishedFlats', () {
-    test('furnished flats वेगळ्या list मध्ये save होतात', () async {
+    test('furnished flats get saved into a separate list', () async {
       when(() => mockProductService.getFurnishedFlats())
           .thenAnswer((_) async => {
         'products': [{'id': 1, 'name': '2BHK Furnished'}],
@@ -96,10 +96,10 @@ void main() {
 
       final state = container.read(productProvider);
       expect(state.furnishedFlats.length, 1);
-      expect(state.unfurnishedFlats, isEmpty); // ✅ दुसरी list touch झाली नाही
+      expect(state.unfurnishedFlats, isEmpty); // ✅ the other list wasn't touched
     });
 
-    test('unfurnished flats वेगळ्या list मध्ये save होतात', () async {
+    test('unfurnished flats get saved into a separate list', () async {
       when(() => mockProductService.getUnfurnishedFlats())
           .thenAnswer((_) async => {
         'products': [{'id': 2, 'name': '3BHK Unfurnished'}],
@@ -115,7 +115,7 @@ void main() {
   });
 
   group('ProductNotifier.searchProducts', () {
-    test('search results वेगळ्या "searchResults" state field मध्ये जातात', () async {
+    test('search results go into a separate "searchResults" state field', () async {
       when(() => mockProductService.searchProducts(any()))
           .thenAnswer((_) async => {
         'products': [{'id': 3, 'name': 'Sofa Cleaning'}],
@@ -126,12 +126,12 @@ void main() {
 
       final state = container.read(productProvider);
       expect(state.searchResults.length, 1);
-      expect(state.products, isEmpty); // ✅ मुख्य products list touch झाली नाही
+      expect(state.products, isEmpty); // ✅ the main products list wasn't touched
     });
   });
 
   group('ProductNotifier.getProductReviews / addProductReview', () {
-    test('getProductReviews यशस्वी झाल्यास reviews state मध्ये येतात', () async {
+    test('reviews land in state when getProductReviews succeeds', () async {
       when(() => mockProductService.getProductReviews(any()))
           .thenAnswer((_) async => {
         'reviews': [
@@ -146,7 +146,7 @@ void main() {
       expect(state.reviews.length, 1);
     });
 
-    test('addProductReview यशस्वी झाल्यास true return करतो आणि reviews refresh करतो', () async {
+    test('addProductReview returns true on success and refreshes reviews', () async {
       when(() => mockProductService.addProductReview(
         productId: any(named: 'productId'),
         rating:    any(named: 'rating'),
@@ -173,7 +173,7 @@ void main() {
       verify(() => mockProductService.getProductReviews(9)).called(1);
     });
 
-    test('addProductReview fail झाल्यास false return करतो आणि error state सेट होते', () async {
+    test('addProductReview returns false and sets error state on failure', () async {
       when(() => mockProductService.addProductReview(
         productId: any(named: 'productId'),
         rating:    any(named: 'rating'),
@@ -194,7 +194,7 @@ void main() {
   });
 
   group('ProductNotifier — clear helpers', () {
-    test('clearSelectedProduct केल्यावर selectedProduct null होतो', () async {
+    test('selectedProduct becomes null after clearSelectedProduct', () async {
       when(() => mockProductService.getProductDetail(any()))
           .thenAnswer((_) async => {'product': {'id': 1}});
 

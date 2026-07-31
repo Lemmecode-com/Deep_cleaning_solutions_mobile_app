@@ -1,10 +1,11 @@
 // test/services/product_service_test.dart
 //
-// ✅ हा टेस्ट ProductService चा request-building आणि सगळ्यात महत्त्वाचं —
-// शेअर्ड `_unwrap()` response-parsing logic तपासतो. बहुतेक सगळे methods
-// (getProducts, getProductDetail, इ.) याच helper मधून जातात, त्यामुळे तीन
-// आकार खास तपासलेत: `data.data` हा Map असेल, List असेल, किंवा `data` key
-// नसेल — प्रत्येक वेगळा dispatch होतो का ते.
+// ✅ This test checks ProductService's request-building and, most
+// importantly, the shared `_unwrap()` response-parsing logic. Most
+// methods (getProducts, getProductDetail, etc.) go through this same
+// helper, so three shapes are specifically checked: `data.data` being a
+// Map, being a List, or the `data` key being absent — whether each
+// dispatches correctly.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
@@ -34,7 +35,7 @@ void main() {
   });
 
   group('ProductService — _unwrap shared parsing', () {
-    test('data.data List असेल तर {"products": [...]} अशा shape मध्ये wrap होतो', () async {
+    test('gets wrapped into a {"products": [...]} shape when data.data is a List', () async {
       when(() => mockApi.get('/products', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({
         'data': [
@@ -49,7 +50,7 @@ void main() {
       expect(result['products'].length, 2);
     });
 
-    test('data.data Map असेल तर तो inner map जसाच्या तसा return होतो', () async {
+    test('the inner map is returned as-is when data.data is a Map', () async {
       when(() => mockApi.get('/products/5')).thenAnswer((_) async => _res({
         'data': {
           'product': {'id': 5, 'name': 'AC Service'},
@@ -61,7 +62,7 @@ void main() {
       expect(result['product']['name'], 'AC Service');
     });
 
-    test('"data" key नसेल तर पूर्ण top-level map जसाच्या तसा return होतो', () async {
+    test('the entire top-level map is returned as-is when there is no "data" key', () async {
       when(() => mockApi.get('/products/furnished-flats'))
           .thenAnswer((_) async => _res({
         'status':   true,
@@ -74,7 +75,7 @@ void main() {
       expect(result['products'], isA<List>());
     });
 
-    test('response Map नसेल (null/garbage) तर रिकामा map return होतो, crash होत नाही', () async {
+    test('returns an empty map without crashing when the response is not a Map (null/garbage)', () async {
       when(() => mockApi.get('/products/unfurnished-flats'))
           .thenAnswer((_) async => _res(null));
 
@@ -85,7 +86,7 @@ void main() {
   });
 
   group('ProductService.getProducts — query params', () {
-    test('category/search दिलेले नसतील तर queryParams मध्ये त्यांचे keys जातच नाहीत', () async {
+    test('the category/search keys are not sent in queryParams when they are not given', () async {
       when(() => mockApi.get('/products', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': <dynamic>[]}));
 
@@ -101,7 +102,7 @@ void main() {
       expect(captured['page'], 1);
     });
 
-    test('category/search दिलेले असतील तर queryParams मध्ये जातात', () async {
+    test('category/search go into queryParams when they are given', () async {
       when(() => mockApi.get('/products', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': <dynamic>[]}));
 
@@ -119,7 +120,7 @@ void main() {
   });
 
   group('ProductService.searchProducts', () {
-    test('query "keyword" key ने पाठवला जातो, "q" ने नाही (जुनी चूक)', () async {
+    test('the query is sent with the "keyword" key, not "q" (old bug)', () async {
       when(() => mockApi.get('/products/search', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': <dynamic>[]}));
 
@@ -136,7 +137,7 @@ void main() {
   });
 
   group('ProductService.getBHKList', () {
-    test('type आणि bhk दोन्ही queryParams मध्ये जातात', () async {
+    test('both type and bhk go into queryParams', () async {
       when(() => mockApi.get('/products/bhk-list', queryParams: any(named: 'queryParams')))
           .thenAnswer((_) async => _res({'data': <dynamic>[]}));
 
@@ -150,7 +151,7 @@ void main() {
   });
 
   group('ProductService.addProductReview', () {
-    test('rating आणि review बरोबर payload सोबत बरोबर endpoint ला POST होतं', () async {
+    test('POSTs to the correct endpoint with the correct rating and review payload', () async {
       when(() => mockApi.post('/products/9/reviews', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'data': {'id': 1}}));
 

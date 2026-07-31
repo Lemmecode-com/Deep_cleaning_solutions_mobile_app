@@ -26,7 +26,7 @@ void main() {
   });
 
   group('getWishlist', () {
-    test('data wrapper मधून items + count काढतो', () async {
+    test('extracts items + count from the data wrapper', () async {
       when(() => mockApiClient.get('/wishlist')).thenAnswer(
             (_) async => _fakeResponse({
           'data': {
@@ -48,7 +48,7 @@ void main() {
       expect(result['count'], 2);
     });
 
-    test('data missing असेल तर empty items / 0 count देतो', () async {
+    test('gives empty items / 0 count when data is missing', () async {
       when(() => mockApiClient.get('/wishlist'))
           .thenAnswer((_) async => _fakeResponse({}));
 
@@ -60,7 +60,7 @@ void main() {
   });
 
   group('addToWishlist', () {
-    test('product_id सोबत POST करतो आणि response.data return करतो', () async {
+    test('does a POST with product_id and returns response.data', () async {
       when(() => mockApiClient.post('/wishlist', data: {'product_id': 5}))
           .thenAnswer((_) async => _fakeResponse({'status': true}));
 
@@ -73,7 +73,7 @@ void main() {
   });
 
   group('removeFromWishlist', () {
-    test('product_id सोबत DELETE करतो आणि response.data return करतो', () async {
+    test('does a DELETE with product_id and returns response.data', () async {
       when(() => mockApiClient.delete('/wishlist', data: {'product_id': 5}))
           .thenAnswer((_) async => _fakeResponse({'status': true}));
 
@@ -86,7 +86,7 @@ void main() {
   });
 
   group('checkWishlistStatus', () {
-    test('product_id सोबत POST करतो आणि response.data return करतो', () async {
+    test('does a POST with product_id and returns response.data', () async {
       when(() => mockApiClient.post(
         '/wishlist/check-status',
         data: {'product_id': 5},
@@ -99,7 +99,7 @@ void main() {
   });
 
   group('getWishlistCount', () {
-    test('data wrapper मधून count काढतो', () async {
+    test('extracts count from the data wrapper', () async {
       when(() => mockApiClient.get('/wishlist/count')).thenAnswer(
             (_) async => _fakeResponse({
           'data': {'count': 7},
@@ -111,7 +111,7 @@ void main() {
       expect(count, 7);
     });
 
-    test('data missing असेल तर 0 देतो', () async {
+    test('gives 0 when data is missing', () async {
       when(() => mockApiClient.get('/wishlist/count'))
           .thenAnswer((_) async => _fakeResponse({}));
 

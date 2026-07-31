@@ -31,7 +31,7 @@ void main() {
 
   group('submitEnquiry', () {
     test(
-        'required fields + default orderInspection(false) सोबत योग्य payload पाठवतो',
+        'sends the correct payload with required fields + default orderInspection(false)',
             () async {
           when(() => mockApiClient.post(any(), data: any(named: 'data')))
               .thenAnswer((_) async => _fakeResponse({'status': true}));
@@ -64,7 +64,7 @@ void main() {
           expect(captured.containsKey('inspection_time'), false);
         });
 
-    test('orderInspection true + inspection date/time दिल्यास ते payload मध्ये जातात',
+    test('when orderInspection true + inspection date/time are given, they land in the payload',
             () async {
           when(() => mockApiClient.post(any(), data: any(named: 'data')))
               .thenAnswer((_) async => _fakeResponse({'status': true}));
@@ -92,7 +92,7 @@ void main() {
           expect(captured['inspection_time'], '10:00 AM');
         });
 
-    test('inspectionDate फक्त दिला (time नाही) तर payload मध्ये फक्त date जातो',
+    test('when only inspectionDate is given (no time), only date goes into the payload',
             () async {
           when(() => mockApiClient.post(any(), data: any(named: 'data')))
               .thenAnswer((_) async => _fakeResponse({'status': true}));
@@ -118,7 +118,7 @@ void main() {
           expect(captured.containsKey('inspection_time'), false);
         });
 
-    test('response.data जसाच्या तसा return करतो', () async {
+    test('returns response.data as-is', () async {
       when(() => mockApiClient.post(any(), data: any(named: 'data')))
           .thenAnswer((_) async => _fakeResponse({
         'status':     true,
@@ -142,7 +142,7 @@ void main() {
   });
 
   group('getEnquiryPaymentStatus', () {
-    test('योग्य enquiryId सोबत GET करतो आणि response.data return करतो',
+    test('does a GET with the correct enquiryId and returns response.data',
             () async {
           when(() => mockApiClient.get('/enquiry/42/payment-status')).thenAnswer(
                 (_) async => _fakeResponse({'paid': true, 'amount': 999}),

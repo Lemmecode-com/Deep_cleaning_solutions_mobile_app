@@ -30,7 +30,7 @@ void main() {
   });
 
   group('getBlogs', () {
-    test('category/search/page सगळे query params मध्ये पाठवतो आणि response.data return करतो', () async {
+    test('sends category/search/page all as query params and returns response.data', () async {
       when(() => mockApiClient.get(
         '/blogs',
         queryParams: {'category': 'tips', 'search': 'clean', 'page': 2},
@@ -54,7 +54,7 @@ void main() {
       )).called(1);
     });
 
-    test('category/search null असतील तर query params मधून वगळतो, फक्त page पाठवतो', () async {
+    test('excludes category/search from query params when null, sends only page', () async {
       when(() => mockApiClient.get('/blogs', queryParams: {'page': 1}))
           .thenAnswer((_) async => _fakeResponse({'data': {}}));
 
@@ -66,7 +66,7 @@ void main() {
   });
 
   group('getBlogDetail', () {
-    test('slug सोबत GET करतो आणि response.data return करतो', () async {
+    test('does a GET with the slug and returns response.data', () async {
       when(() => mockApiClient.get('/blogs/my-blog-post')).thenAnswer(
             (_) async => _fakeResponse({
           'data': {'id': 3, 'title': 'My Blog Post'},
@@ -80,7 +80,7 @@ void main() {
   });
 
   group('addComment', () {
-    test('blogId + comment सोबत POST करतो आणि response.data return करतो', () async {
+    test('does a POST with blogId + comment and returns response.data', () async {
       when(() => mockApiClient.post(
         '/blogs/7/comment',
         data: {'comment': 'Nice post!'},
@@ -100,7 +100,7 @@ void main() {
   });
 
   group('toggleLike', () {
-    test('blogId सोबत POST करतो (empty data) आणि response.data return करतो', () async {
+    test('does a POST with blogId (empty data) and returns response.data', () async {
       when(() => mockApiClient.post('/blogs/7/like', data: {}))
           .thenAnswer((_) async => _fakeResponse({'liked': true}));
 

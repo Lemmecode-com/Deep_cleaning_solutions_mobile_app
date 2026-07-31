@@ -30,7 +30,7 @@ void main() {
   });
 
   group('sendMessage', () {
-    test('name/email/mobile/service/message सगळे बरोबर payload मध्ये पाठवतो', () async {
+    test('sends name/email/mobile/service/message all correctly in the payload', () async {
       when(() => mockApiClient.post(any(), data: any(named: 'data')))
           .thenAnswer((_) async => _fakeResponse({'status': true}));
 
@@ -53,7 +53,7 @@ void main() {
       expect(captured['message'], 'Need a quote for 2BHK');
     });
 
-    test('response.data जसाच्या तसा return करतो', () async {
+    test('returns response.data as-is', () async {
       when(() => mockApiClient.post(any(), data: any(named: 'data')))
           .thenAnswer((_) async => _fakeResponse({
         'status':  true,
@@ -72,7 +72,7 @@ void main() {
       expect(result['message'], 'Thank you, we will contact you soon');
     });
 
-    test('DELETE/GET नाही, फक्त एकदाच POST /contact हिट होतो', () async {
+    test('no DELETE/GET, only POST /contact gets hit, and only once', () async {
       when(() => mockApiClient.post(any(), data: any(named: 'data')))
           .thenAnswer((_) async => _fakeResponse({'status': true}));
 
@@ -90,7 +90,7 @@ void main() {
   });
 
   group('getContactInfo', () {
-    test('GET /contact करतो आणि response.data return करतो', () async {
+    test('does GET /contact and returns response.data', () async {
       when(() => mockApiClient.get('/contact')).thenAnswer(
             (_) async => _fakeResponse({
           'address': 'Pune, Maharashtra',

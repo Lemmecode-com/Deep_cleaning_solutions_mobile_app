@@ -25,7 +25,7 @@ void main() {
     homeService = HomeService(apiClient: mockApiClient);
   });
 
-  test('getHomeData: /home वरून GET करतो आणि response.data return करतो',
+  test('getHomeData: does a GET on /home and returns response.data',
           () async {
         when(() => mockApiClient.get('/home')).thenAnswer(
               (_) async => _fakeResponse({'banners': [], 'categories': []}),
@@ -37,7 +37,7 @@ void main() {
         verify(() => mockApiClient.get('/home')).called(1);
       });
 
-  test('getCategories: /categories वरून GET करतो', () async {
+  test('getCategories: does a GET on /categories', () async {
     when(() => mockApiClient.get('/categories')).thenAnswer(
           (_) async => _fakeResponse({
         'categories': [
@@ -54,7 +54,7 @@ void main() {
     verify(() => mockApiClient.get('/categories')).called(1);
   });
 
-  test('getBanners: /home/banners वरून GET करतो', () async {
+  test('getBanners: does a GET on /home/banners', () async {
     when(() => mockApiClient.get('/home/banners')).thenAnswer(
           (_) async => _fakeResponse({
         'banners': [
@@ -71,7 +71,7 @@ void main() {
     verify(() => mockApiClient.get('/home/banners')).called(1);
   });
 
-  test('getTeam: /home/team वरून GET करतो', () async {
+  test('getTeam: does a GET on /home/team', () async {
     when(() => mockApiClient.get('/home/team')).thenAnswer(
           (_) async => _fakeResponse({
         'team': [
@@ -88,7 +88,7 @@ void main() {
     verify(() => mockApiClient.get('/home/team')).called(1);
   });
 
-  test('getTestimonials: /home/testimonials वरून GET करतो', () async {
+  test('getTestimonials: does a GET on /home/testimonials', () async {
     when(() => mockApiClient.get('/home/testimonials')).thenAnswer(
           (_) async => _fakeResponse({
         'testimonials': [
@@ -105,7 +105,7 @@ void main() {
     verify(() => mockApiClient.get('/home/testimonials')).called(1);
   });
 
-  test('getFAQs: /home/faqs वरून GET करतो', () async {
+  test('getFAQs: does a GET on /home/faqs', () async {
     when(() => mockApiClient.get('/home/faqs')).thenAnswer(
           (_) async => _fakeResponse({
         'faqs': [
@@ -122,7 +122,7 @@ void main() {
     verify(() => mockApiClient.get('/home/faqs')).called(1);
   });
 
-  test('getVideos: /home/videos वरून GET करतो', () async {
+  test('getVideos: does a GET on /home/videos', () async {
     when(() => mockApiClient.get('/home/videos')).thenAnswer(
           (_) async => _fakeResponse({
         'videos': [

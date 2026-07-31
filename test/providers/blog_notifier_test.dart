@@ -27,7 +27,7 @@ void main() {
   });
 
   group('getBlogs', () {
-    test('success झाल्यास blogs + categories state मध्ये set करतो', () async {
+    test('sets blogs + categories in state on success', () async {
       when(() => mockBlogService.getBlogs(
         category: any(named: 'category'),
         search: any(named: 'search'),
@@ -49,7 +49,7 @@ void main() {
       expect(state.error, isNull);
     });
 
-    test('data missing असेल तर empty blogs/categories देतो', () async {
+    test('returns empty blogs/categories when data is missing', () async {
       when(() => mockBlogService.getBlogs(
         category: any(named: 'category'),
         search: any(named: 'search'),
@@ -64,7 +64,7 @@ void main() {
       expect(state.categories, isEmpty);
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       when(() => mockBlogService.getBlogs(
         category: any(named: 'category'),
         search: any(named: 'search'),
@@ -81,7 +81,7 @@ void main() {
   });
 
   group('getBlogDetail', () {
-    test('success झाल्यास selectedBlog state मध्ये set करतो', () async {
+    test('sets selectedBlog in state on success', () async {
       when(() => mockBlogService.getBlogDetail('my-slug')).thenAnswer(
             (_) async => {
           'data': {'id': 5, 'title': 'My Blog'},
@@ -94,7 +94,7 @@ void main() {
       expect(container.read(blogProvider).selectedBlog?['title'], 'My Blog');
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       when(() => mockBlogService.getBlogDetail('bad-slug'))
           .thenThrow(Exception('not found'));
 
@@ -106,7 +106,7 @@ void main() {
   });
 
   group('addComment', () {
-    test('success झाल्यास true return करतो', () async {
+    test('returns true on success', () async {
       when(() => mockBlogService.addComment(
         blogId: any(named: 'blogId'),
         comment: any(named: 'comment'),
@@ -118,7 +118,7 @@ void main() {
       expect(result, true);
     });
 
-    test('error आल्यास false return करतो आणि error state सेट होते', () async {
+    test('returns false and sets error state when an error occurs', () async {
       when(() => mockBlogService.addComment(
         blogId: any(named: 'blogId'),
         comment: any(named: 'comment'),
@@ -133,7 +133,7 @@ void main() {
   });
 
   group('toggleLike', () {
-    test('success झाल्यास true return करतो', () async {
+    test('returns true on success', () async {
       when(() => mockBlogService.toggleLike(7))
           .thenAnswer((_) async => {'liked': true});
 
@@ -143,7 +143,7 @@ void main() {
       expect(result, true);
     });
 
-    test('error आल्यास false return करतो', () async {
+    test('returns false when an error occurs', () async {
       when(() => mockBlogService.toggleLike(7))
           .thenThrow(Exception('like failed'));
 
@@ -156,7 +156,7 @@ void main() {
   });
 
   group('setSelectedCategory', () {
-    test('index 0 वर सगळे blogs परत आणतो (category filter नाही)', () async {
+    test('returns all blogs at index 0 (no category filter)', () async {
       when(() => mockBlogService.getBlogs(
         category: null,
         search: any(named: 'search'),
@@ -173,7 +173,7 @@ void main() {
       expect(container.read(blogProvider).blogs.length, 2);
     });
 
-    test('index != 0 आणि categoryName दिलं तर त्याच category साठी filter करतो', () async {
+    test('filters by that category when index != 0 and categoryName is given', () async {
       when(() => mockBlogService.getBlogs(
         category: 'tips',
         search: any(named: 'search'),
@@ -197,7 +197,7 @@ void main() {
   });
 
   group('clearError', () {
-    test('फक्त error null करतो, बाकी state तशीच ठेवतो (copyWith bug fix)', () async {
+    test('only clears error to null, keeps the rest of the state as-is (copyWith bug fix)', () async {
       when(() => mockBlogService.getBlogs(
         category: any(named: 'category'),
         search: any(named: 'search'),
@@ -215,7 +215,7 @@ void main() {
   });
 
   group('clearSelectedBlog', () {
-    test('selectedBlog null करतो (तोच copyWith bug इथेही होता, आता fix)', () async {
+    test('sets selectedBlog to null (same copyWith bug existed here too, now fixed)', () async {
       when(() => mockBlogService.getBlogDetail('my-slug')).thenAnswer(
             (_) async => {'data': {'id': 5}},
       );

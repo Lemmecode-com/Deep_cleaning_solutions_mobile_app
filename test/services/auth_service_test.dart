@@ -1,8 +1,8 @@
 // test/services/auth_service_test.dart
 //
-// ✅ हा टेस्ट AuthService चा token-handling आणि response-shape logic
-// तपासतो — खरा network call किंवा खरा secure-storage platform channel
-// न वापरता. ApiClient आणि FlutterSecureStorage दोन्ही mock केलेत.
+// ✅ This test checks AuthService's token-handling and response-shape
+// logic — without using a real network call or a real secure-storage
+// platform channel. Both ApiClient and FlutterSecureStorage are mocked.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
@@ -43,7 +43,7 @@ void main() {
   });
 
   group('AuthService.login', () {
-    test('token मिळाल्यास secure storage मध्ये save होतो', () async {
+    test('saves the token to secure storage when one is received', () async {
       when(() => mockApi.post('/auth/login', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'data': {
@@ -62,7 +62,7 @@ void main() {
           .called(1);
     });
 
-    test('API चुकीच्या credentials मुळे fail झाल्यास error वर जातो, token save होत नाही', () async {
+    test('propagates the error and does not save a token when the API fails due to wrong credentials', () async {
       when(() => mockApi.post('/auth/login', data: any(named: 'data')))
           .thenThrow(ApiException('Invalid credentials'));
 
@@ -79,7 +79,7 @@ void main() {
   });
 
   group('AuthService.register', () {
-    test('token नसेल तर storage.write call होत नाही', () async {
+    test('storage.write is not called when there is no token', () async {
       when(() => mockApi.post('/auth/register', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'data': {'id': 5, 'name': 'New User'},
@@ -100,7 +100,7 @@ void main() {
   });
 
   group('AuthService.logout', () {
-    test('logout API call fail झाला तरी local token delete होतोच (try/finally)', () async {
+    test('the local token still gets deleted even if the logout API call fails (try/finally)', () async {
       when(() => mockApi.post('/auth/logout'))
           .thenThrow(ApiException('Network error'));
 
@@ -109,7 +109,7 @@ void main() {
       verify(() => mockStorage.delete(key: 'auth_token')).called(1);
     });
 
-    test('logout API यशस्वी झाल्यासही token delete होतो', () async {
+    test('the token also gets deleted when the logout API succeeds', () async {
       when(() => mockApi.post('/auth/logout'))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -120,7 +120,7 @@ void main() {
   });
 
   group('AuthService.getProfile / updateProfile', () {
-    test('getProfile response ला {"user": {...}} अशा shape मध्ये wrap करतो', () async {
+    test('wraps the getProfile response in a {"user": {...}} shape', () async {
       when(() => mockApi.get('/auth/profile')).thenAnswer((_) async => _res({
         'data': {'id': 1, 'name': 'Rahul', 'email': 'rahul@test.com'},
       }));
@@ -130,7 +130,7 @@ void main() {
       expect(result['user']['name'], 'Rahul');
     });
 
-    test('updateProfile सुद्धा तोच {"user": {...}} shape देतो', () async {
+    test('updateProfile also gives the same {"user": {...}} shape', () async {
       when(() => mockApi.put('/auth/profile', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'data': {'id': 1, 'name': 'Rahul Updated', 'phone': '9999999999'},
@@ -148,14 +148,14 @@ void main() {
   });
 
   group('AuthService.isLoggedIn', () {
-    test('token असल्यास true return करतो', () async {
+    test('returns true when a token exists', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => 'sometoken');
 
       expect(await authService.isLoggedIn(), true);
     });
 
-    test('token नसल्यास false return करतो', () async {
+    test('returns false when there is no token', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => null);
 
@@ -164,7 +164,7 @@ void main() {
   });
 
   group('AuthService.deleteAccount', () {
-    test('top-level message आणि data merge करून return करतो', () async {
+    test('merges and returns the top-level message and data', () async {
       when(() => mockApi.delete('/auth/account', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'message': 'Deletion scheduled.',

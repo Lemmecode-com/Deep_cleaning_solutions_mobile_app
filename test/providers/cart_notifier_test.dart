@@ -1,9 +1,10 @@
 // test/providers/cart_notifier_test.dart
 //
-// ✅ हा टेस्ट CartNotifier चा cart-management logic तपासतो — खरा API call
-// किंवा internet न वापरता. CartService च्या जागी खोटं (mock) CartService
-// वापरलंय — त्यामुळे आपण control करू शकतो: "getCart call आला की हा data
-// दे" किंवा "addToCart call आला की error फेकून टाक".
+// ✅ This test checks CartNotifier's cart-management logic — without making
+// a real API call or using the internet. A fake (mock) CartService is used
+// in place of CartService — so we can control it: "when the getCart call
+// comes, give this data" or "when the addToCart call comes, throw an
+// error".
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,11 +12,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:dcs_app/providers/cart_provider.dart';
 import 'package:dcs_app/services/cart_service.dart';
 
-// ── Step 1: खोटं (mock) CartService बनवा ────────────────────────────
+// ── Step 1: Create a fake (mock) CartService ────────────────────────
 class MockCartService extends Mock implements CartService {}
 
-// getCart() चा डिफॉल्ट (रिकामी cart) response — बहुतेक टेस्टमध्ये
-// setUp मध्ये हाच वापरला जातो, त्यामुळे इथे एकदाच helper म्हणून ठेवलाय.
+// The default (empty cart) response for getCart() — the same one is used
+// in setUp for most tests, so it's kept here once as a helper.
 Map<String, dynamic> _emptyCartResponse() => {
   'cart_items':   <dynamic>[],
   'cart_count':   0,
@@ -29,9 +30,9 @@ void main() {
   late MockCartService mockCartService;
   late ProviderContainer container;
 
-  // mocktail ला addToCart/applyCoupon इ. मधले Map/List arguments
-  // (fallback values) आधी registered लागतात, नाहीतर any(named: ..)
-  // वापरताना error येतो.
+  // mocktail needs the Map/List arguments used in addToCart/applyCoupon
+  // etc. (fallback values) registered beforehand, otherwise using
+  // any(named: ..) throws an error.
   setUpAll(() {
     registerFallbackValue(<String, dynamic>{});
   });
@@ -39,16 +40,17 @@ void main() {
   setUp(() {
     mockCartService = MockCartService();
 
-    // ✅ CartNotifier चा constructor सुरू होताच _init() → getCart() call
-    // होतो. हे mock न केल्यास पहिलाच टेस्ट सुरू होण्याआधी error येईल,
-    // म्हणून डिफॉल्ट "रिकामी cart" behavior आधीच सेट करून ठेवतोय.
+    // ✅ As soon as CartNotifier's constructor starts, _init() → getCart()
+    // gets called. If this isn't mocked, an error will occur before the
+    // very first test even starts, so we set up a default "empty cart"
+    // behavior beforehand.
     when(() => mockCartService.getCart())
         .thenAnswer((_) async => _emptyCartResponse());
 
     container = ProviderContainer(
       overrides: [
-        // ✅ Step 2: cartProvider ला सांगा — खरं CartService() नको,
-        // आपलं mockCartService वापर.
+        // ✅ Step 2: Tell cartProvider — don't use the real CartService(),
+        // use our mockCartService.
         cartProvider.overrideWith(
               (ref) => CartNotifier(cartService: mockCartService),
         ),
@@ -59,7 +61,7 @@ void main() {
   });
 
   group('CartNotifier.getCart', () {
-    test('getCart यशस्वी झाल्यास cart items/count/totals state मध्ये भरतात', () async {
+    test('fills cart items/count/totals into state when getCart succeeds', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.getCart()).thenAnswer((_) async => {
         'cart_items': [
@@ -88,7 +90,7 @@ void main() {
       expect(state.error, null);
     });
 
-    test('getCart fail झाल्यास error state सेट होते, cart रिकामीच राहते', () async {
+    test('sets error state and keeps cart empty when getCart fails', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.getCart())
           .thenThrow(Exception('Network error'));
@@ -106,8 +108,8 @@ void main() {
   });
 
   group('CartNotifier.addToCart', () {
-    test('addToCart यशस्वी झाल्यास cart refresh होते आणि true return होतं', () async {
-      // ── Arrange: add call ठीक आहे, आणि नंतरचं getCart अपडेटेड cart देतं ──
+    test('refreshes the cart and returns true when addToCart succeeds', () async {
+      // ── Arrange: the add call succeeds, and the following getCart returns the updated cart ──
       when(() => mockCartService.addToCart(
         productId: any(named: 'productId'),
         extras:    any(named: 'extras'),
@@ -140,7 +142,7 @@ void main() {
       )).called(1);
     });
 
-    test('addToCart fail झाल्यास error state सेट होते आणि false return होतं', () async {
+    test('sets error state and returns false when addToCart fails', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.addToCart(
         productId: any(named: 'productId'),
@@ -160,7 +162,7 @@ void main() {
   });
 
   group('CartNotifier.removeCartItem', () {
-    test('removeCartItem यशस्वी झाल्यास cart refresh होते आणि true return होतं', () async {
+    test('refreshes the cart and returns true when removeCartItem succeeds', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.removeCartItem(any()))
           .thenAnswer((_) async => {'status': true});
@@ -180,7 +182,7 @@ void main() {
       verify(() => mockCartService.removeCartItem('r1')).called(1);
     });
 
-    test('removeCartItem fail झाल्यास error state सेट होते', () async {
+    test('sets error state when removeCartItem fails', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.removeCartItem(any()))
           .thenThrow(Exception('Item not found'));
@@ -197,7 +199,7 @@ void main() {
   });
 
   group('CartNotifier.applyCoupon', () {
-    test('applyCoupon यशस्वी झाल्यास updated discount/coupon state मध्ये येतो', () async {
+    test('updated discount/coupon land in state when applyCoupon succeeds', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.applyCoupon(any()))
           .thenAnswer((_) async => {'status': true});
@@ -224,7 +226,7 @@ void main() {
       verify(() => mockCartService.applyCoupon('WELCOME100')).called(1);
     });
 
-    test('applyCoupon invalid code साठी fail झाल्यास error state सेट होते', () async {
+    test('sets error state when applyCoupon fails for an invalid code', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockCartService.applyCoupon(any()))
           .thenThrow(Exception('Invalid coupon code'));
@@ -242,8 +244,8 @@ void main() {
   });
 
   group('CartNotifier.clearCart', () {
-    test('clearCart केल्यावर संपूर्ण state (branch/coupon सकट) रिकामी होते', () async {
-      // ── Arrange: आधी काहीतरी data असलेली state तयार करा ─────────────
+    test('the entire state (including branch/coupon) becomes empty after clearCart', () async {
+      // ── Arrange: first build a state that already has some data ─────────────
       when(() => mockCartService.getCart()).thenAnswer((_) async => {
         'cart_items':   [
           {'rowId': 'r1', 'name': 'AC Service', 'qty': 1},
@@ -262,14 +264,14 @@ void main() {
       // ── Act ──────────────────────────────────────────────────────
       final result = await notifier.clearCart();
 
-      // ── Assert: नवीन कोरी (default) CartState सारखीच असावी ──────────
+      // ── Assert: should look like a brand new (default) CartState ──────────
       final state = container.read(cartProvider);
       expect(result, true);
       expect(state.cartItems, isEmpty);
       expect(state.cartCount, 0);
       expect(state.totalAmount, 0.0);
       expect(state.couponCode, null);
-      expect(state.selectedBranchId, null); // ✅ branch selection सुद्धा reset
+      expect(state.selectedBranchId, null); // ✅ branch selection also resets
       expect(state.error, null);
     });
   });

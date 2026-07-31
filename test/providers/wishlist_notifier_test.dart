@@ -23,19 +23,19 @@ void main() {
   setUp(() {
     mockWishlistService = MockWishlistService();
     mockAuthService = MockAuthService();
-    // ✅ AuthNotifier चा constructor `_checkLoginStatus()` आतल्या आत
-    // `await _authService.isLoggedIn()` कॉल करतो. इथे synchronously
-    // throw करून टाकलं की तो await पर्यंत पोचण्याआधीच try/catch मध्ये
-    // settle होतो — म्हणजे constructor परत येईपर्यंत AuthState आधीच
-    // ठरलेली असते (race condition टाळण्यासाठी). खालचा test प्रत्यक्ष
-    // हवा तो login-state नंतर थेट force करतो.
+    // ✅ AuthNotifier's constructor calls `await _authService.isLoggedIn()`
+    // inside `_checkLoginStatus()`. By throwing synchronously here, it
+    // settles in the try/catch before even reaching that await — meaning
+    // AuthState is already decided by the time the constructor returns
+    // (to avoid a race condition). The test below then directly forces
+    // whatever login-state it actually needs.
     when(() => mockAuthService.isLoggedIn())
         .thenThrow(Exception('stub: real value forced below'));
   });
 
-  // ✅ helper: container बनवतो, wishlistService + authService mock
-  // घुसवतो, आणि authState थेट हवं तसं (logged-in / logged-out) force
-  // करतो.
+  // ✅ helper: builds the container, injects the wishlistService +
+  // authService mocks, and directly forces authState to whatever we want
+  // (logged-in / logged-out).
   ProviderContainer buildContainer({required bool loggedIn}) {
     final container = ProviderContainer(
       overrides: [
@@ -58,7 +58,7 @@ void main() {
   }
 
   group('getWishlist', () {
-    test('logged-out असताना service call होत नाही', () async {
+    test('service call does not happen when logged out', () async {
       final container = buildContainer(loggedIn: false);
 
       await container.read(wishlistProvider.notifier).getWishlist();
@@ -67,7 +67,7 @@ void main() {
       expect(container.read(wishlistProvider).wishlistItems, isEmpty);
     });
 
-    test('logged-in असताना items + count state मध्ये set करतो', () async {
+    test('sets items + count in state when logged in', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.getWishlist()).thenAnswer(
             (_) async => {
@@ -87,7 +87,7 @@ void main() {
       expect(state.isLoading, false);
     });
 
-    test('error आल्यास error state मध्ये set होतो', () async {
+    test('sets error state when an error occurs', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.getWishlist())
           .thenThrow(Exception('network error'));
@@ -101,7 +101,7 @@ void main() {
   });
 
   group('addToWishlist', () {
-    test('logged-out असताना login_required return करतो', () async {
+    test('returns login_required when logged out', () async {
       final container = buildContainer(loggedIn: false);
 
       final result =
@@ -111,7 +111,7 @@ void main() {
       verifyNever(() => mockWishlistService.addToWishlist(any()));
     });
 
-    test('success झाल्यास wishlist refresh करून success return करतो',
+    test('refreshes the wishlist and returns success on success',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.addToWishlist(5))
@@ -132,7 +132,7 @@ void main() {
           expect(container.read(wishlistProvider).wishlistItems.length, 1);
         });
 
-    test('error आल्यास error return करतो', () async {
+    test('returns error when an error occurs', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.addToWishlist(5))
           .thenThrow(Exception('add failed'));
@@ -146,7 +146,7 @@ void main() {
   });
 
   group('removeFromWishlist', () {
-    test('logged-out असताना false return करतो', () async {
+    test('returns false when logged out', () async {
       final container = buildContainer(loggedIn: false);
 
       final result = await container
@@ -157,7 +157,7 @@ void main() {
       verifyNever(() => mockWishlistService.removeFromWishlist(any()));
     });
 
-    test('success झाल्यास wishlist refresh करतो', () async {
+    test('refreshes the wishlist on success', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.removeFromWishlist(5))
           .thenAnswer((_) async => {'status': true});
@@ -172,7 +172,7 @@ void main() {
       expect(container.read(wishlistProvider).wishlistItems, isEmpty);
     });
 
-    test('backend bug मुळे API error आला तरी item local state मधून काढतो',
+    test('removes the item from local state even if a backend bug causes an API error',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.getWishlist()).thenAnswer(
@@ -202,7 +202,7 @@ void main() {
   });
 
   group('toggleWishlist', () {
-    test('logged-out असताना login_required return करतो', () async {
+    test('returns login_required when logged out', () async {
       final container = buildContainer(loggedIn: false);
 
       final result =
@@ -211,7 +211,7 @@ void main() {
       expect(result, 'login_required');
     });
 
-    test('item आधीच wishlist मध्ये असेल तर remove करतो ("removed")',
+    test('removes the item if it is already in the wishlist ("removed")',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.getWishlist()).thenAnswer(
@@ -235,7 +235,7 @@ void main() {
           expect(result, 'removed');
         });
 
-    test('item wishlist मध्ये नसेल तर add करतो ("success")', () async {
+    test('adds the item if it is not in the wishlist ("success")', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.addToWishlist(5))
           .thenAnswer((_) async => {'status': true});
@@ -256,7 +256,7 @@ void main() {
   });
 
   group('clearWishlist', () {
-    test('state पूर्णपणे reset करतो', () async {
+    test('fully resets the state', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.getWishlist()).thenAnswer(
             (_) async => {
@@ -279,7 +279,7 @@ void main() {
   });
 
   group('isInWishlist', () {
-    test('logged-out असताना नेहमी false', () async {
+    test('always false when logged out', () async {
       final container = buildContainer(loggedIn: false);
 
       expect(
@@ -288,7 +288,7 @@ void main() {
       );
     });
 
-    test('item state मध्ये असेल तरच true देतो', () async {
+    test('returns true only if the item is in state', () async {
       final container = buildContainer(loggedIn: true);
       when(() => mockWishlistService.getWishlist()).thenAnswer(
             (_) async => {
@@ -309,7 +309,7 @@ void main() {
   });
 
   group('clearError', () {
-    test('फक्त error null करतो, बाकी state तशीच ठेवतो (copyWith bug fix)',
+    test('only clears error to null, keeps the rest of the state as-is (copyWith bug fix)',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.getWishlist())
@@ -324,7 +324,7 @@ void main() {
   });
 
   group('derived providers', () {
-    test('wishlistCountProvider wishlist state चा count reflect करतो',
+    test('wishlistCountProvider reflects the count from wishlist state',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.getWishlist()).thenAnswer(
@@ -342,7 +342,7 @@ void main() {
           expect(container.read(wishlistCountProvider), 3);
         });
 
-    test('isInWishlistProvider specific productId साठी बरोबर बूल देतो',
+    test('isInWishlistProvider gives the correct boolean for a specific productId',
             () async {
           final container = buildContainer(loggedIn: true);
           when(() => mockWishlistService.getWishlist()).thenAnswer(

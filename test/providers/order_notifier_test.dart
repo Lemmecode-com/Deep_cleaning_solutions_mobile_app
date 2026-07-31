@@ -1,9 +1,10 @@
 // test/providers/order_notifier_test.dart
 //
-// ✅ हा टेस्ट OrderNotifier चा checkout/orders logic तपासतो — खरा API call
-// न करता. OrderService mock केलाय. सगळ्यात महत्त्वाचा टेस्ट: branch पटकन
-// बदलल्यास जुना (stale) /checkout/init response नवीन response ला
-// override करत नाही, हे "race condition guard" इथे specifically तपासलंय.
+// ✅ This test checks OrderNotifier's checkout/orders logic — without
+// making a real API call. OrderService is mocked. The most important test:
+// specifically checks the "race condition guard" — when the branch is
+// switched quickly, an old (stale) /checkout/init response must not
+// override the newer response.
 
 import 'dart:async';
 
@@ -34,7 +35,7 @@ void main() {
   });
 
   group('OrderNotifier.getOrders', () {
-    test('getOrders यशस्वी झाल्यास orders list state मध्ये भरते', () async {
+    test('fills the orders list into state when getOrders succeeds', () async {
       when(() => mockOrderService.getOrders(
         status: any(named: 'status'),
         page:   any(named: 'page'),
@@ -56,7 +57,7 @@ void main() {
       expect(state.error, null);
     });
 
-    test('getOrders fail झाल्यास error state सेट होते', () async {
+    test('sets error state when getOrders fails', () async {
       when(() => mockOrderService.getOrders(
         status: any(named: 'status'),
         page:   any(named: 'page'),
@@ -73,15 +74,15 @@ void main() {
   });
 
   group('OrderNotifier.getCheckoutInit — race condition guard', () {
-    test('जुना (stale) response उशिरा आला तरी नवीन branch चीच state राहते', () async {
+    test('state stays on the new branch even if a stale response arrives late', () async {
       // ── Arrange ──────────────────────────────────────────────────
-      // Branch 1 चा call मुद्दाम "अडकवून" ठेवतोय (Completer वापरून) —
-      // जणू काही ती network request अजून चालू आहे.
+      // Deliberately "stall" Branch 1's call (using a Completer) — as if
+      // that network request is still in flight.
       final branch1Completer = Completer<Map<String, dynamic>>();
       when(() => mockOrderService.checkoutInit(branchId: 1))
           .thenAnswer((_) => branch1Completer.future);
 
-      // Branch 2 चा call लगेच (synchronously-ish) resolve होतो.
+      // Branch 2's call resolves right away (near-synchronously).
       when(() => mockOrderService.checkoutInit(branchId: 2))
           .thenAnswer((_) async => {
         'data': {
@@ -95,24 +96,24 @@ void main() {
       final notifier = container.read(orderProvider.notifier);
 
       // ── Act ──────────────────────────────────────────────────────
-      // Branch 1 चा call सुरू करा, पण await करू नका — अजून pending आहे.
+      // Start Branch 1's call, but don't await it yet — it's still pending.
       final future1 = notifier.getCheckoutInit(branchId: 1);
 
-      // वापरकर्त्याने पटकन Branch 2 निवडलं — हे लगेच पूर्ण होतं.
+      // The user quickly selected Branch 2 — this completes right away.
       await notifier.getCheckoutInit(branchId: 2);
 
-      // आता Branch 1 चा जुना response उशिरा येऊ द्या.
+      // Now let Branch 1's old response arrive late.
       branch1Completer.complete({
         'data': {
           'branch_id':  1,
           'branches':   [],
           'city_areas': [],
-          'subtotal':   999, // ✅ ही जुनी/चुकीची value असावी, state मध्ये येता कामा नये
+          'subtotal':   999, // ✅ this should be a stale/wrong value that must not land in state
         },
       });
-      await future1; // stale response आता process होईल, पण drop व्हायला हवा
+      await future1; // the stale response will now be processed, but should be dropped
 
-      // ── Assert: state अजूनही Branch 2 चीच असावी ──────────────────────
+      // ── Assert: state should still be Branch 2's ──────────────────────
       final state = container.read(orderProvider);
       expect(state.selectedBranchId, 2);
       expect(state.subtotal, 500.0);
@@ -120,12 +121,12 @@ void main() {
   });
 
   group('OrderNotifier.selectArea', () {
-    test('area निवडल्यावर shipping/subtotal/grandTotal summary मधून अपडेट होतात', () async {
+    test('shipping/subtotal/grandTotal get updated from the summary when an area is selected', () async {
       when(() => mockOrderService.checkoutSummary(countryId: any(named: 'countryId')))
           .thenAnswer((_) async => {
         'data': {
           'shipping_charge': '50.00',
-          'subtotal':         '1,000.00', // ✅ comma असलेला amount
+          'subtotal':         '1,000.00', // ✅ amount with a comma
           'discount':         '0.00',
           'grand_total':      '1,050.00',
           'advance_amount':   '200.00',
@@ -138,14 +139,14 @@ void main() {
       final state = container.read(orderProvider);
       expect(state.selectedAreaId, 3);
       expect(state.shippingCharge, 50.0);
-      expect(state.subtotal, 1000.0); // comma बरोबर parse झाला
+      expect(state.subtotal, 1000.0); // the comma was parsed correctly
       expect(state.grandTotal, 1050.0);
       expect(state.isInitLoading, false);
     });
   });
 
   group('OrderNotifier.applyCoupon', () {
-    test('valid coupon लागल्यास couponCode/discount state मध्ये अपडेट होतात', () async {
+    test('couponCode/discount get updated in state when a valid coupon is applied', () async {
       when(() => mockOrderService.applyCoupon(
         code:      any(named: 'code'),
         countryId: any(named: 'countryId'),
@@ -169,7 +170,7 @@ void main() {
       expect(state.isCouponLoading, false);
     });
 
-    test('invalid coupon लागल्यास couponError सेट होतो, result false', () async {
+    test('couponError is set and result is false when an invalid coupon is applied', () async {
       when(() => mockOrderService.applyCoupon(
         code:      any(named: 'code'),
         countryId: any(named: 'countryId'),
@@ -186,7 +187,7 @@ void main() {
   });
 
   group('OrderNotifier.processOrder', () {
-    // helper — प्रत्येक टेस्टमध्ये पुन्हा पुन्हा लिहिण्याऐवजी
+    // helper — instead of rewriting this in every single test
     Future<bool> callProcessOrder(OrderNotifier notifier) {
       return notifier.processOrder(
         firstName: 'Rahul', lastName: 'Sharma', email: 'rahul@test.com',
@@ -196,7 +197,7 @@ void main() {
       );
     }
 
-    test('यशस्वी झाल्यास selectedOrder/redirectUrl सेट होतात आणि orders refresh होतात', () async {
+    test('selectedOrder/redirectUrl get set and orders get refreshed on success', () async {
       when(() => mockOrderService.processOrder(
         firstName:   any(named: 'firstName'),
         lastName:    any(named: 'lastName'),
@@ -234,7 +235,7 @@ void main() {
       )).called(1);
     });
 
-    test('DPDPA pending-deletion (403) आल्यास isDeletionBlocked true होतो', () async {
+    test('isDeletionBlocked becomes true when DPDPA pending-deletion (403) occurs', () async {
       when(() => mockOrderService.processOrder(
         firstName:   any(named: 'firstName'),
         lastName:    any(named: 'lastName'),
@@ -260,7 +261,7 @@ void main() {
       expect(state.error, 'Account pending deletion.');
     });
 
-    test('इतर कुठलीही error आल्यास फक्त error state सेट होते, isDeletionBlocked false राहतो', () async {
+    test('for any other error, only the error state is set, isDeletionBlocked stays false', () async {
       when(() => mockOrderService.processOrder(
         firstName:   any(named: 'firstName'),
         lastName:    any(named: 'lastName'),

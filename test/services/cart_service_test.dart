@@ -1,10 +1,11 @@
 // test/services/cart_service_test.dart
 //
-// ✅ हा टेस्ट CartService चा request-building आणि response-parsing logic
-// तपासतो — खरा network call न करता. ApiClient च्या जागी खोटं (mock)
-// ApiClient वापरलंय — त्यामुळे आपण control करू शकतो: "get('/cart') call
-// आला की हा raw JSON दे" आणि मग CartService त्याला कसं parse करतं ते
-// तपासतो (उदा. comma असलेले amounts, branch-price नसलेले items, इ.).
+// ✅ This test checks CartService's request-building and response-parsing
+// logic — without making a real network call. A fake (mock) ApiClient is
+// used in place of ApiClient — so we can control it: "when the
+// get('/cart') call comes, give this raw JSON" and then check how
+// CartService parses it (e.g. amounts with commas, items with no
+// branch-price, etc.).
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
@@ -12,10 +13,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:dcs_app/services/cart_service.dart';
 import 'package:dcs_app/services/api_client.dart';
 
-// ── खोटं (mock) ApiClient बनवा ──────────────────────────────────────
+// ── Create a fake (mock) ApiClient ──────────────────────────────────
 class MockApiClient extends Mock implements ApiClient {}
 
-// helper: दिलेल्या data सकट एक खोटं dio Response बनवतं
+// helper: builds a fake dio Response with the given data
 Response _res(dynamic data, {int statusCode = 200}) => Response(
   requestOptions: RequestOptions(path: ''),
   data:           data,
@@ -36,7 +37,7 @@ void main() {
   });
 
   group('CartService.getCart', () {
-    test('comma असलेले amounts (उदा. "6,600.00") बरोबर parse होतात', () async {
+    test('amounts with commas (e.g. "6,600.00") get parsed correctly', () async {
       // ── Arrange ──────────────────────────────────────────────────
       when(() => mockApi.get('/cart')).thenAnswer((_) async => _res({
         'data': {
@@ -52,7 +53,7 @@ void main() {
       // ── Act ──────────────────────────────────────────────────────
       final result = await cartService.getCart();
 
-      // ── Assert: comma काढून बरोबर double मध्ये convert झालं ──────────
+      // ── Assert: commas removed and correctly converted into a double ──────────
       expect(result['total_amount'], 6600.0);
       expect(result['discount'], 1000.0);
       expect(result['final_amount'], 5600.0);
@@ -60,13 +61,13 @@ void main() {
       expect(result['coupon_code'], 'SAVE1000');
     });
 
-    test('final_amount नसेल तर subtotal fallback म्हणून वापरतो', () async {
+    test('uses subtotal as a fallback when final_amount is missing', () async {
       when(() => mockApi.get('/cart')).thenAnswer((_) async => _res({
         'data': {
           'items':    [],
           'count':    0,
           'subtotal': '500.00',
-          // final_amount आणि discount दिलेलेच नाहीत
+          // final_amount and discount aren't given at all
         },
       }));
 
@@ -78,7 +79,7 @@ void main() {
   });
 
   group('CartService.addToCart', () {
-    test('productId "id" key म्हणून पाठवतो, extras merge होतात', () async {
+    test('sends productId as the "id" key, extras get merged in', () async {
       when(() => mockApi.post('/cart/add', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -94,12 +95,12 @@ void main() {
 
       expect(captured['id'], 42);
       expect(captured['note'], 'no soap');
-      expect(captured.containsKey('product_id'), false); // जुना wrong key नसावा
+      expect(captured.containsKey('product_id'), false); // the old wrong key shouldn't be present
     });
   });
 
   group('CartService.updateCartItem', () {
-    test('rowId आणि qty बरोबर keys सोबत PUT होतात', () async {
+    test('PUTs with the correct rowId and qty keys', () async {
       when(() => mockApi.put('/cart/update', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -116,7 +117,7 @@ void main() {
   });
 
   group('CartService.removeCartItem', () {
-    test('rowId सोबत DELETE call होतो', () async {
+    test('DELETE call is made with the rowId', () async {
       when(() => mockApi.delete('/cart/item', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -130,7 +131,7 @@ void main() {
   });
 
   group('CartService.applyCoupon / removeCoupon', () {
-    test('applyCoupon "code" key सोबत बरोबर endpoint ला जातं', () async {
+    test('applyCoupon hits the correct endpoint with the "code" key', () async {
       when(() => mockApi.post('/checkout/apply-coupon', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -142,7 +143,7 @@ void main() {
       )).called(1);
     });
 
-    test('removeCoupon बरोबर endpoint ला रिकाम्या body सोबत जातं', () async {
+    test('removeCoupon hits the correct endpoint with an empty body', () async {
       when(() => mockApi.post('/checkout/remove-coupon', data: any(named: 'data')))
           .thenAnswer((_) async => _res({'status': true}));
 
@@ -156,7 +157,7 @@ void main() {
   });
 
   group('CartService.addFlatToCart', () {
-    test('status false असल्यास backend चा message throw होतो', () async {
+    test('throws the backend\'s message when status is false', () async {
       when(() => mockApi.post('/cart/add-flat', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'status':  false,
@@ -175,7 +176,7 @@ void main() {
   });
 
   group('CartService.setBranch', () {
-    test('status false असल्यास throw होतो', () async {
+    test('throws when status is false', () async {
       when(() => mockApi.post('/cart/set-branch', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'status':  false,
@@ -188,14 +189,14 @@ void main() {
       );
     });
 
-    test('available/unavailable items बरोबर वेगळे parse होतात', () async {
+    test('available/unavailable items are parsed separately and correctly', () async {
       when(() => mockApi.post('/cart/set-branch', data: any(named: 'data')))
           .thenAnswer((_) async => _res({
         'data': {
           'branch_id': 5,
           'prices': {
             'r1': {'price_per_unit': '100.00', 'final_price': '250.50', 'sqft': 10},
-            'r2': null, // ✅ या branch मध्ये उपलब्ध नाही
+            'r2': null, // ✅ not available at this branch
           },
           'unavailable': [
             {'rowId': 'r2', 'name': 'Deep Cleaning'},

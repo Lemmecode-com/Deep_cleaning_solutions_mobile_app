@@ -1,9 +1,10 @@
 // test/services/api_client_interceptors_test.dart
 //
-// ✅ हे इंटरसेप्टर्स (auth token, guest-id, 401 handling, GET-retry) टेस्ट
-// करतात — खऱ्या Dio वर, पण नेटवर्कऐवजी fake HttpClientAdapter वापरून
-// (कुठलाही खरा HTTP call जात नाही). FlutterSecureStorage mock केलंय,
-// SharedPreferences साठी built-in test-mode (setMockInitialValues) वापरलंय.
+// ✅ These test the interceptors (auth token, guest-id, 401 handling,
+// GET-retry) — on a real Dio, but using a fake HttpClientAdapter instead of
+// the network (no real HTTP call goes out). FlutterSecureStorage is
+// mocked, and SharedPreferences uses its built-in test-mode
+// (setMockInitialValues).
 
 import 'dart:convert';
 
@@ -17,11 +18,11 @@ import 'package:dcs_app/services/api_client.dart';
 class MockHttpClientAdapter extends Mock implements HttpClientAdapter {}
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
-// ✅ FIX: content-type header न दिल्यास Dio JSON auto-parse करत नाही —
-// response.data raw String राहतो (parsed Map नाही), आणि नंतर
-// response.data['key'] केल्यावर "String is not a subtype of int" crash
-// येतो. आता content-type explicitly json दिलंय, त्यामुळे Dio बरोबर
-// parse करतो.
+// ✅ FIX: if a content-type header isn't given, Dio doesn't auto-parse
+// JSON — response.data stays a raw String (not a parsed Map), and later
+// doing response.data['key'] crashes with "String is not a subtype of
+// int". Content-type is now given explicitly as json, so Dio parses it
+// correctly.
 ResponseBody _bodyFor(dynamic json, {int statusCode = 200}) {
   final bytes = utf8.encode(jsonEncode(json));
   return ResponseBody.fromBytes(
@@ -52,14 +53,14 @@ void main() {
     apiClient = ApiClient.test(dio, storage: mockStorage);
     dio.interceptors.add(apiClient.buildInterceptors());
 
-    // ✅ static fields प्रत्येक test आधी reset — मागच्या test चा state
-    // पुढच्या test मध्ये लीक होऊ नये म्हणून
+    // ✅ reset static fields before every test — so state from a previous
+    // test doesn't leak into the next one
     ApiClient.onUnauthorized = null;
     ApiClient.suppressUnauthorizedRedirect = false;
   });
 
   group('auth token injection', () {
-    test('token असेल तर Authorization header लावतो', () async {
+    test('sets the Authorization header when a token exists', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => 'abc123');
 
@@ -78,7 +79,7 @@ void main() {
   });
 
   group('guest-id injection', () {
-    test('token नसेल आणि आधीच guest_id saved असेल तर तोच वापरतो', () async {
+    test('uses the existing guest_id if there is no token but one was already saved', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => null);
       SharedPreferences.setMockInitialValues({'guest_id': 'guest-existing'});
@@ -96,7 +97,7 @@ void main() {
       expect(captured!.headers.containsKey('Authorization'), false);
     });
 
-    test('token नाही आणि guest_id सुद्धा saved नसेल तर नवीन तयार करून save करतो',
+    test('creates and saves a new guest_id when there is no token and no guest_id saved yet',
             () async {
           when(() => mockStorage.read(key: 'auth_token'))
               .thenAnswer((_) async => null);
@@ -120,7 +121,7 @@ void main() {
   });
 
   group('401 handling', () {
-    test('401 आणि आधी token होता तर token delete करतो + onUnauthorized call होतो',
+    test('deletes the token + calls onUnauthorized on 401 when a token existed before',
             () async {
           when(() => mockStorage.read(key: 'auth_token'))
               .thenAnswer((_) async => 'abc123');
@@ -141,7 +142,7 @@ void main() {
           expect(called, true);
         });
 
-    test('401 आणि token नव्हताच (guest) तर onUnauthorized call होत नाही', () async {
+    test('onUnauthorized does not get called on 401 when there was no token to begin with (guest)', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => null);
       when(() => mockStorage.delete(key: 'auth_token'))
@@ -160,7 +161,7 @@ void main() {
       expect(called, false);
     });
 
-    test('suppressUnauthorizedRedirect=true असताना token असूनही onUnauthorized call होत नाही',
+    test('onUnauthorized does not get called even with a token when suppressUnauthorizedRedirect=true',
             () async {
           when(() => mockStorage.read(key: 'auth_token'))
               .thenAnswer((_) async => 'abc123');
@@ -182,7 +183,7 @@ void main() {
   });
 
   group('GET-only retry on timeout', () {
-    test('GET timeout वर 1 वेळा retry करतो, retry success झाल्यास तोच response मिळतो',
+    test('retries once on a GET timeout, and gets the same response if the retry succeeds',
             () async {
           when(() => mockStorage.read(key: 'auth_token'))
               .thenAnswer((_) async => null);
@@ -208,7 +209,7 @@ void main() {
           expect(response.data['ok'], true);
         });
 
-    test('POST timeout वर retry करत नाही (duplicate order टाळण्यासाठी)', () async {
+    test('does not retry on a POST timeout (to avoid duplicate orders)', () async {
       when(() => mockStorage.read(key: 'auth_token'))
           .thenAnswer((_) async => null);
       SharedPreferences.setMockInitialValues({'guest_id': 'g1'});
@@ -231,11 +232,12 @@ void main() {
       expect(callCount, 1);
     });
 
-    // ✅ FIX: आधी `expect(() => ..., throwsA(...))` वापरलं होतं — ते
-    // Future-returning callback सोबत नीट await होत नाही, त्यामुळे
-    // race condition + नंतर 30-second timeout येत होता. बाकीच्या सगळ्या
-    // टेस्ट्ससारखं साधं try/catch पॅटर्न वापरलंय — सुसंगत आणि योग्य दोन्ही.
-    test('retry सुद्धा fail झाला तर original error तसाच पुढे जातो (आणि पुन्हा retry करत नाही)',
+    // ✅ FIX: previously used `expect(() => ..., throwsA(...))` — that
+    // doesn't await properly with a Future-returning callback, which
+    // caused a race condition followed by a 30-second timeout. Now uses
+    // the same plain try/catch pattern as all the other tests — both
+    // consistent and correct.
+    test('if the retry also fails, the original error propagates unchanged (and no further retry happens)',
             () async {
           when(() => mockStorage.read(key: 'auth_token'))
               .thenAnswer((_) async => null);
@@ -246,9 +248,9 @@ void main() {
               .thenAnswer((inv) async {
             callCount++;
             final options = inv.positionalArguments[0] as RequestOptions;
-            // ✅ दोन्ही वेळा timeout देतो — fix बरोबर असेल तरच callCount
-            // बरोब्बर 2 वर थांबेल (नाहीतर आधीसारखं अनंत loop होईल आणि
-            // test timeout होईल)
+            // ✅ returns a timeout both times — if the fix is correct,
+            // callCount will stop at exactly 2 (otherwise it would loop
+            // forever like before and the test would time out)
             throw DioException(
               requestOptions: options,
               type: DioExceptionType.connectionTimeout,
@@ -266,7 +268,7 @@ void main() {
             );
           }
 
-          // ✅ नेमकं 2 — original + 1 retry, त्यापुढे नाही
+          // ✅ exactly 2 — original + 1 retry, no more
           expect(callCount, 2);
         });
   });

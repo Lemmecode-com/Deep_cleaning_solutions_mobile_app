@@ -1,15 +1,15 @@
 // test/providers/auth_state_test.dart
 //
-// ✅ हा सगळ्यात सोपा Unit Test आहे — कुठलाही API call, storage, mocking
-// लागत नाही. AuthState फक्त एक data class आहे (copyWith सोबत), त्यामुळे
-// थेट टेस्ट करता येतो.
+// ✅ This is the simplest Unit Test — no API call, storage, or mocking
+// needed. AuthState is just a data class (with copyWith), so it can be
+// tested directly.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 
 void main() {
   group('AuthState', () {
-    test('default values बरोबर सेट होतात', () {
+    test('default values are set correctly', () {
       const state = AuthState();
 
       expect(state.isLoading, false);
@@ -22,18 +22,18 @@ void main() {
       expect(state.activeOrderWarning, null);
     });
 
-    test('copyWith दिलेली values update करतो, बाकी जुनीच ठेवतो', () {
+    test('copyWith updates the given values, keeps the rest unchanged', () {
       const initial = AuthState(isLoading: false, isLoggedIn: false);
 
       final updated = initial.copyWith(isLoading: true, isLoggedIn: true);
 
       expect(updated.isLoading, true);
       expect(updated.isLoggedIn, true);
-      // बाकी fields जुनीच राहायला हवीत
+      // The remaining fields should stay the same
       expect(updated.isInitialized, false);
     });
 
-    test('copyWith मध्ये काही field न दिल्यास जुनीच value टिकते', () {
+    test('when a field is not given to copyWith, the old value is retained', () {
       const initial = AuthState(
         isLoggedIn: true,
         user: {'name': 'Test User'},
@@ -41,12 +41,12 @@ void main() {
 
       final updated = initial.copyWith(isLoading: true);
 
-      // isLoggedIn आणि user बदललेले नाहीत, तरी टिकून राहायला हवेत
+      // isLoggedIn and user weren't changed, but should be preserved
       expect(updated.isLoggedIn, true);
       expect(updated.user, {'name': 'Test User'});
     });
 
-    test('login झाल्यावरची अपेक्षित state', () {
+    test('expected state after login', () {
       const initial = AuthState();
 
       final afterLogin = initial.copyWith(
@@ -61,7 +61,7 @@ void main() {
       expect(afterLogin.error, null);
     });
 
-    test('error आल्यावरची अपेक्षित state', () {
+    test('expected state after an error occurs', () {
       const initial = AuthState(isLoading: true);
 
       final afterError = initial.copyWith(
@@ -71,10 +71,10 @@ void main() {
 
       expect(afterError.isLoading, false);
       expect(afterError.error, 'Invalid credentials');
-      expect(afterError.isLoggedIn, false); // login झालेला नाही
+      expect(afterError.isLoggedIn, false); // not logged in
     });
 
-    test('deletion cancel झाल्यावर pending-deletion fields clear होतात', () {
+    test('pending-deletion fields clear after deletion is cancelled', () {
       const withPendingDeletion = AuthState(
         isLoggedIn: true,
         hasPendingDeletion: true,
@@ -82,10 +82,10 @@ void main() {
         activeOrderWarning: 'You have 1 active order',
       );
 
-      // ⚠️ लक्षात ठेव: copyWith चा `??` pattern null pass करून खरं
-      // override करू शकत नाही — म्हणून auth_provider.dart मध्ये
-      // cancelAccountDeletion() नवीन AuthState() object बनवतो,
-      // copyWith वापरत नाही. तोच पॅटर्न इथे टेस्ट केलाय.
+      // ⚠️ Note: copyWith's `??` pattern can't truly override by passing
+      // null — so in auth_provider.dart, cancelAccountDeletion() builds a
+      // brand new AuthState() object instead of using copyWith. The same
+      // pattern is tested here.
       final afterCancel = AuthState(
         isLoading: false,
         isLoggedIn: withPendingDeletion.isLoggedIn,
@@ -99,7 +99,7 @@ void main() {
       expect(afterCancel.hasPendingDeletion, false);
       expect(afterCancel.deletionScheduledAt, null);
       expect(afterCancel.activeOrderWarning, null);
-      expect(afterCancel.isLoggedIn, true); // login state टिकून राहायला हवा
+      expect(afterCancel.isLoggedIn, true); // login state should be preserved
     });
   });
 }
