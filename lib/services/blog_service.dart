@@ -3,7 +3,12 @@
 import 'api_client.dart';
 
 class BlogService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — टेस्टमध्ये
+  // BlogService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  BlogService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ── Get All Blogs ─────────────────────────────────────────────────
   // ✅ API doc: GET /blogs

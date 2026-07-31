@@ -58,9 +58,15 @@ class HomeState {
 
 // ── Home Notifier ─────────────────────────────────────────────────────
 class HomeNotifier extends StateNotifier<HomeState> {
-  final HomeService _homeService = HomeService();
+  final HomeService _homeService;
 
-  HomeNotifier() : super(const HomeState()) {
+  // ✅ CHANGED (testability साठी): आधी `final HomeService _homeService =
+  // HomeService();` कायमचं fixed होतं. आता optional named parameter —
+  // टेस्टमध्ये HomeNotifier(homeService: mockHomeService) करून mock
+  // घुसवता येतो.
+  HomeNotifier({HomeService? homeService})
+      : _homeService = homeService ?? HomeService(),
+        super(const HomeState()) {
     getHomeData();
   }
 

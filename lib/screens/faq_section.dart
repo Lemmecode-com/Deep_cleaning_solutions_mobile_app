@@ -41,10 +41,6 @@ class _FAQSectionState extends State<FAQSection> {
       'a': 'Yes, all our cleaning professionals at Deep Cleaning Solutions undergo thorough training in proper cleaning techniques, safety protocols, and customer service. We conduct background checks on all staff members. Our company is fully insured with liability coverage.',
     },
     {
-      'q': 'Was Deep Cleaning Solutions known by a different name before?',
-      'a': 'Yes. Deep Cleaning Solutions was earlier known as Suvarnarajgroup (SRG). We have since rebranded to Deep Cleaning Solutions to better represent our core focus on residential and commercial cleaning services, while continuing to serve our existing and new clients with the same team, standards, and commitment to quality that we always have.',
-    },
-    {
       'q': "What if I'm not satisfied with the cleaning service?",
       'a': 'Customer satisfaction is our top priority. We offer a 5-star satisfaction guarantee. If you\'re not completely satisfied, please notify us within 24 hours of service completion, and we\'ll arrange for a follow-up cleaning at no additional cost.',
     },

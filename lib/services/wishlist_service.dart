@@ -3,7 +3,12 @@
 import 'api_client.dart';
 
 class WishlistService {
-  final ApiClient _api = ApiClient();
+  final ApiClient _api;
+
+  // ✅ CHANGED (testability साठी): आधी `final ApiClient _api = ApiClient();`
+  // कायमचं fixed होतं. आता optional named parameter — टेस्टमध्ये
+  // WishlistService(apiClient: mockApiClient) करून mock घुसवता येतो.
+  WishlistService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
   // ── Get Wishlist ──────────────────────────────────────────────────
   Future<Map<String, dynamic>> getWishlist() async {
