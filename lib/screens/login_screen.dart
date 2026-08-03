@@ -5,6 +5,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/utils/app_messenger.dart'; // ✅ NEW: root-level SnackBar, survives navigation
 
 import '../providers/home_provider.dart';
 
@@ -29,7 +30,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    // ✅ CHANGED: AppMessenger (root-level) ऐवजी ScaffoldMessenger.of(context)
+    // वापरत होतो — तो LoginScreen destroy झाला (GoRouter redirect मुळे) की
+    // SnackBar सोबतच गायब व्हायचा, त्यामुळे काही phones वर message कधीच
+    // दिसत नव्हता (race condition — GoRouter navigate विरुद्ध SnackBar render).
+    AppMessenger.showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? AppColors.secondary : AppColors.green,
@@ -47,12 +52,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       password: _passwordCtrl.text.trim(),
     );
 
-    if (!mounted) return;
-
+    // ✅ FIX: आधी हा mounted check SnackBar च्या आधी होता — पण
+    // authProvider.login() successful होताच GoRouter (state change ऐकून)
+    // इतक्या लवकर redirect करू शकतो की login() चा await return व्हायच्या
+    // आतच LoginScreen unmount होतो. मग इथला "if (!mounted) return;"
+    // SnackBar दाखवायच्या आधीच बाहेर पडायचा, आणि message कधीच दिसायचा
+    // नाही (device speed नुसार कधी दिसायचा, कधी नाही).
+    //
+    // AppMessenger ला context/mounted लागत नाही (तो root-level messenger
+    // वापरतो), म्हणून तो mounted check च्या आधीच, बिनशर्त call करतोय.
+    // उरलेल्या context-dependent operations (delay + home data + navigate)
+    // साठीच mounted guard ठेवलाय.
     if (success) {
-      // ✅ Login successful — snackbar आधी दाखवा, मग थोडा वेळ थांबून home वर navigate करा
-      // (नाहीतर snackbar दिसायच्या आधीच स्क्रीन बदलून जाते)
       _showSnackBar('Login successful!');
+
+      if (!mounted) return;
+
       await Future.delayed(const Duration(milliseconds: 400));
 
       if (!mounted) return;
@@ -61,6 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(homeProvider.notifier).getHomeData();
       if (mounted) context.go('/');
     } else {
+      if (!mounted) return;
       _showSnackBar(
         ref.read(authProvider).error ?? 'Login failed!',
         isError: true,
