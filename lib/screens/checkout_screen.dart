@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_messenger.dart'; // ✅ NEW: root-level SnackBar, survives navigation
 import 'package:dcs_app/providers/cart_provider.dart';
 import 'package:dcs_app/providers/order_provider.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
@@ -335,7 +336,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           } else {
             // Redirect नसेल (म्हणजे लगेच order confirm झालेला असेल)
             // तरच खरा "successful" message दाखवायचा.
-            ScaffoldMessenger.of(context).showSnackBar(
+            // ✅ FIX: SnackBar नंतर लगेच context.go होत होता — त्यामुळे
+            // CheckoutScreen destroy होऊन SnackBar गायब व्हायचा (race
+            // condition, device speed नुसार दिसणं/न दिसणं वेगळं). आता
+            // root-level AppMessenger वापरतोय, जो navigation नंतरही टिकतो.
+            AppMessenger.showSnackBar(
               const SnackBar(
                 content: Text('Order placed successfully!'),
                 backgroundColor: AppColors.green,

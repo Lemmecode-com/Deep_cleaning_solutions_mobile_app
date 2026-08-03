@@ -20,6 +20,7 @@ import 'package:dcs_app/screens/cart_screen.dart';
 import 'package:dcs_app/screens/checkout_screen.dart';
 import 'package:dcs_app/screens/profile_screen.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_messenger.dart'; // ✅ NEW: root ScaffoldMessenger key (fixes SnackBar-hidden-by-navigation race condition)
 import 'package:dcs_app/utils/feature_flags.dart';
 import 'package:dcs_app/screens/home_screen.dart';
 import 'package:dcs_app/services/api_client.dart';
@@ -192,6 +193,7 @@ class _DCSAppState extends ConsumerState<DCSApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      scaffoldMessengerKey: rootScaffoldMessengerKey, // ✅ NEW: SnackBars now survive navigation/redirects
       title: 'Deep Cleaning Solutions',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_messenger.dart'; // ✅ NEW: root-level SnackBar, survives navigation
 import 'package:dcs_app/providers/auth_provider.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -47,7 +48,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     setState(() => _isSubmitting = false);
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // ✅ FIX: लगेच context.pop()/go() होत होता, त्यामुळे screen destroy
+      // होऊन SnackBar काही phones वर दिसतच नव्हता (race condition).
+      // root-level AppMessenger वापरून हे fix केलं.
+      AppMessenger.showSnackBar(
         const SnackBar(
           content: Text('Password changed successfully'),
           backgroundColor: AppColors.green,
