@@ -20,7 +20,7 @@ dependencies:
   flutter_dotenv: ^5.1.0
   uuid: ^4.3.3              # ✅ नवीन — Guest ID UUID साठी
   font_awesome_flutter: ^10.7.0
-  flutter_secure_storage: ^10.3.1
+  flutter_secure_storage: ^11.1.1
   webview_flutter: ^4.7.0
 
 dev_dependencies:

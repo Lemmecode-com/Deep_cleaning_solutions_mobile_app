@@ -39,7 +39,7 @@ android {
 
     defaultConfig {
         applicationId = "com.dcs.srgapp"
-        minSdk = flutter.minSdkVersion
+        minSdk = 29
         targetSdk     = 36
         versionCode   = flutter.versionCode
         versionName   = flutter.versionName
