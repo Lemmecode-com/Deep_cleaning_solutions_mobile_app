@@ -46,7 +46,7 @@ class _BannerSectionState extends State<BannerSection> {
     // छोट्या फोनवर खूप उंच होत नाही, टॅबलेट/मोठ्या स्क्रीनवर खूप lहान होत नाही.
     // Note: तुमच्या R (responsive.dart) मध्ये hp() नाही, म्हणून
     // MediaQuery वापरून height % इथेच local पद्धतीने काढलं आहे.
-    final screenHeight = MediaQuery.of(context).size.height;
+    final screenHeight = MediaQuery.sizeOf(context).height;
     final bannerHeight = R.wp(context, 56).clamp(170.0, screenHeight * 0.32);
 
     return Container(
@@ -92,7 +92,7 @@ class _BannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
+    final screenHeight = MediaQuery.sizeOf(context).height;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: R.wp(context, 4)),

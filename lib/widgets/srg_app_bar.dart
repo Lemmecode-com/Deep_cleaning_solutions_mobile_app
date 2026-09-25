@@ -17,7 +17,7 @@ class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final wishlistCount = ref.watch(wishlistCountProvider);
     final cartCount = ref.watch(cartCountProvider); // ✅ NEW
-    final isLoggedIn = ref.watch(authProvider).isLoggedIn;
+    final isLoggedIn = ref.watch(authProvider.select((s) => s.isLoggedIn));
 
     return AppBar(
       backgroundColor: AppColors.white,
@@ -149,7 +149,7 @@ class SRGSliverAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final wishlistCount = ref.watch(wishlistCountProvider);
     final cartCount = ref.watch(cartCountProvider); // ✅ NEW
-    final isLoggedIn = ref.watch(authProvider).isLoggedIn;
+    final isLoggedIn = ref.watch(authProvider.select((s) => s.isLoggedIn));
 
     return SliverAppBar(
       backgroundColor: AppColors.white,

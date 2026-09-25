@@ -27,13 +27,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final String _whatsappNumber = '918485854972';
 
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() =>
-        ref.read(homeProvider.notifier).getHomeData(),
-    );
-  }
+  // ✅ PERF: initState मधला duplicate `getHomeData()` काढला —
+  // HomeNotifier च्या constructor मध्ये तो आधीच call होतो.
 
   Future<void> _openWhatsApp() async {
     final url = Uri.parse('https://wa.me/$_whatsappNumber');
@@ -49,9 +44,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeProvider);
-    final authState = ref.watch(authProvider);
+    // ✅ PERF: पूर्ण authState ऐवजी फक्त लागणारे fields watch — बाकी बदलांवर rebuild नाही
+    final isInitialized = ref.watch(authProvider.select((s) => s.isInitialized));
+    final isLoggedIn = ref.watch(authProvider.select((s) => s.isLoggedIn));
 
-    if (!authState.isInitialized) {
+    if (!isInitialized) {
       return const Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(
@@ -84,7 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 SliverList(
                   delegate: SliverChildListDelegate([
                     BannerSection(banners: homeState.banners),
-                    if (!authState.isLoggedIn)
+                    if (!isLoggedIn)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: SizedBox(

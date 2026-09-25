@@ -55,4 +55,8 @@ android/app/key.properties
 
 # Play Store audit report (Do not commit)
 PLAY_STORE_AUDIT_REPORT.md
-android/dcs_release_key.jks
+android/dcs_release_key.jksd
+
+# DevTools / local artifacts (Do not commit)
+devtools_options.yaml
+lib.zip
